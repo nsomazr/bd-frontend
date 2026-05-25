@@ -47,12 +47,13 @@ export function Sidebar() {
       closeMobileNav: s.closeMobileNav,
       toggleSidebar: s.toggleSidebar,
     }));
-  const authed = useAuthStore((s) => s.status === "authenticated");
+  const status = useAuthStore((s) => s.status);
+  const sessionReady = status === "authenticated" || status === "guest";
   const isStaff = useAuthStore((s) => Boolean(s.user?.is_staff));
 
   useEffect(() => {
-    if (authed) loadConversations();
-  }, [authed, loadConversations]);
+    if (sessionReady) loadConversations();
+  }, [sessionReady, loadConversations]);
 
   useEffect(() => {
     closeMobileNav();

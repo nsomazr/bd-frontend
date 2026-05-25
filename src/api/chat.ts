@@ -1,4 +1,4 @@
-import { api, API_BASE_URL, tokenStorage } from "./client";
+import { api, API_BASE_URL, buildApiHeaders } from "./client";
 
 export interface Conversation {
   id: string;
@@ -64,14 +64,9 @@ export async function streamCompletion(
   handlers: StreamEventHandlers,
   signal?: AbortSignal,
 ): Promise<void> {
-  const token = tokenStorage.getAccess();
   const resp = await fetch(`${API_BASE_URL}/api/conversations/${conversationId}/complete/`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "text/event-stream",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+    headers: buildApiHeaders({ Accept: "text/event-stream" }),
     body: JSON.stringify({ content, model_key }),
     signal,
   });

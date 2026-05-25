@@ -27,7 +27,7 @@ export default function LeaderboardPage() {
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const authed = useAuthStore((s) => s.status === "authenticated");
+  const canUseApp = useAuthStore((s) => s.status === "authenticated" || s.status === "guest");
 
   useEffect(() => {
     let active = true;
@@ -73,7 +73,7 @@ export default function LeaderboardPage() {
             </span>
           </div>
           <div className="flex items-center gap-1">
-            {authed ? (
+            {canUseApp ? (
               <>
                 <Link
                   to="/arena"
@@ -115,7 +115,7 @@ export default function LeaderboardPage() {
         <div className="mx-auto max-w-5xl px-4 py-8">
           <Header snapshot={snapshot} connected={connected} error={error} />
           {snapshot ? (
-            <LeaderboardTable snapshot={snapshot} authed={authed} />
+            <LeaderboardTable snapshot={snapshot} canUseApp={canUseApp} />
           ) : !error ? (
             <div className="grid place-items-center rounded-2xl border border-zinc-200 bg-white p-12 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
               <Loader2 className="animate-spin text-brand-500" />
@@ -202,10 +202,10 @@ const TIER_ICON = [Crown, Trophy, Sparkles, Activity];
 
 function LeaderboardTable({
   snapshot,
-  authed,
+  canUseApp,
 }: {
   snapshot: LeaderboardSnapshot;
-  authed: boolean;
+  canUseApp: boolean;
 }) {
   if (snapshot.models.length === 0) {
     return (
@@ -232,7 +232,7 @@ function LeaderboardTable({
           <div className="text-sm text-brand-800 dark:text-brand-200">
             <span className="font-semibold">No votes yet.</span> All models start at
             Elo 1000.{" "}
-            {authed ? (
+            {canUseApp ? (
               <Link to="/arena" className="font-semibold underline">
                 Open the arena
               </Link>

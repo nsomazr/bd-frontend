@@ -31,7 +31,7 @@ const MODEL_NAMES = ["Gemma 4 E4B", "Qwen 3.5 4B", "Llama 3.2 3B"];
 
 function NavBar() {
   const status = useAuthStore((s) => s.status);
-  const authed = status === "authenticated";
+  const canUseApp = status === "authenticated" || status === "guest";
   const ready = status !== "idle" && status !== "loading";
   const { t } = useLocale();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -72,15 +72,25 @@ function NavBar() {
           </button>
           {!ready ? (
             <div className="hidden h-9 w-24 animate-pulse rounded-lg bg-zinc-200/70 sm:block dark:bg-zinc-800/70" />
-          ) : authed ? (
-            <Link
-              to="/chat"
-              className="hidden items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 sm:inline-flex"
-            >
-              <span className="hidden sm:inline">{t("nav.goToChat")}</span>
-              <span className="sm:hidden">Chat</span>
-              <ArrowRight size={14} />
-            </Link>
+          ) : canUseApp ? (
+            <>
+              <Link
+                to="/chat"
+                className="hidden items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 sm:inline-flex"
+              >
+                <span className="hidden sm:inline">{t("nav.goToChat")}</span>
+                <span className="sm:hidden">Chat</span>
+                <ArrowRight size={14} />
+              </Link>
+              {status !== "authenticated" && (
+                <Link
+                  to="/login"
+                  className="hidden rounded-lg px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800 md:inline-flex"
+                >
+                  {t("nav.signIn")}
+                </Link>
+              )}
+            </>
           ) : (
             <>
               <Link
@@ -121,7 +131,7 @@ function NavBar() {
             >
               {t("sidebar.leaderboard")}
             </Link>
-            {!authed && ready && (
+            {!canUseApp && ready && (
               <Link
                 to="/login"
                 onClick={() => setMenuOpen(false)}
@@ -139,7 +149,7 @@ function NavBar() {
 
 function Hero() {
   const status = useAuthStore((s) => s.status);
-  const authed = status === "authenticated";
+  const canUseApp = status === "authenticated" || status === "guest";
   const { t } = useLocale();
 
   return (
@@ -175,10 +185,10 @@ function Hero() {
 
             <div className="mt-6 sm:mt-8">
               <Link
-                to={authed ? "/chat" : "/signup"}
+                to="/chat"
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-600/20 transition hover:bg-brand-700 sm:w-auto"
               >
-                {authed ? t("landing.ctaContinue") : t("landing.ctaStartFree")}
+                {canUseApp ? t("landing.ctaContinue") : t("landing.ctaStartFree")}
                 <ArrowRight size={16} />
               </Link>
             </div>
@@ -407,7 +417,7 @@ function arenaStepKey(n: number, field: "title" | "body"): TranslationKey {
 
 function ArenaSection() {
   const status = useAuthStore((s) => s.status);
-  const authed = status === "authenticated";
+  const canUseApp = status === "authenticated" || status === "guest";
   const { t } = useLocale();
 
   return (
@@ -446,7 +456,7 @@ function ArenaSection() {
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
           <Link
-            to={authed ? "/arena" : "/signup"}
+            to="/arena"
             className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-600/20 transition hover:bg-brand-700"
           >
             <Trophy size={16} />
@@ -548,7 +558,7 @@ function FAQ() {
 
 function CTA() {
   const status = useAuthStore((s) => s.status);
-  const authed = status === "authenticated";
+  const canUseApp = status === "authenticated" || status === "guest";
   const { t } = useLocale();
 
   return (
@@ -569,10 +579,10 @@ function CTA() {
               </p>
             </div>
             <Link
-              to={authed ? "/chat" : "/signup"}
+              to="/chat"
               className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-brand-700 shadow-sm transition hover:bg-brand-50"
             >
-              {authed ? t("landing.ctaChat") : t("landing.ctaStart")}
+              {canUseApp ? t("landing.ctaChat") : t("landing.ctaStart")}
               <ArrowRight size={16} />
             </Link>
           </div>

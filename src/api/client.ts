@@ -9,6 +9,32 @@ export const API_BASE_URL: string =
 
 const ACCESS_KEY = "maisha.access";
 const REFRESH_KEY = "maisha.refresh";
+const VISITOR_KEY = "maisha.visitor_id";
+
+export const visitorStorage = {
+  get(): string | null {
+    return localStorage.getItem(VISITOR_KEY);
+  },
+  ensure(): string {
+    let id = localStorage.getItem(VISITOR_KEY);
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem(VISITOR_KEY, id);
+    }
+    return id;
+  },
+};
+
+export function buildApiHeaders(extra?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...extra,
+  };
+  const token = tokenStorage.getAccess();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  headers["X-Visitor-Id"] = visitorStorage.ensure();
+  return headers;
+}
 
 export const tokenStorage = {
   getAccess: () => localStorage.getItem(ACCESS_KEY),
@@ -30,10 +56,16 @@ export const api = axios.create({
 
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = tokenStorage.getAccess();
-  if (token) {
-    const headers = config.headers as any;
-    if (typeof headers?.set === "function") headers.set("Authorization", `Bearer ${token}`);
-    else config.headers = { ...(headers ?? {}), Authorization: `Bearer ${token}` } as any;
+  const headers = config.headers as any;
+  if (typeof headers?.set === "function") {
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    headers.set("X-Visitor-Id", visitorStorage.ensure());
+  } else {
+    config.headers = {
+      ...(headers ?? {}),
+      "X-Visitor-Id": visitorStorage.ensure(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    } as any;
   }
   return config;
 });
@@ -70,9 +102,6 @@ api.interceptors.response.use(
     refreshing = null;
     if (!newToken) {
       tokenStorage.clear();
-      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
-        window.location.assign("/login");
-      }
       return Promise.reject(error);
     }
     original.headers = original.headers ?? ({} as any);

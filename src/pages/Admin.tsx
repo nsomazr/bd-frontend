@@ -5,7 +5,9 @@ import {
   ArrowLeft,
   Download,
   Loader2,
+  MapPin,
   MessageSquareQuote,
+  MessagesSquare,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -22,23 +24,27 @@ import {
   downloadAdminExport,
   getAdminStats,
   listAdminArena,
+  listAdminConversations,
   listAdminFeedback,
   listAdminRegenerations,
+  listAdminVisitors,
   type AdminArenaRow,
+  type AdminConversationRow,
   type AdminFeedbackRow,
   type AdminRegenRow,
   type AdminStats,
+  type AdminVisitorRow,
   type Paginated,
 } from "@/api/rlhf";
 
-type Tab = "dpo-arena" | "dpo-regen" | "feedback";
+type Tab = "visitors" | "conversations" | "dpo-arena" | "dpo-regen" | "feedback";
 
 export default function AdminPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("dpo-arena");
+  const [tab, setTab] = useState<Tab>("visitors");
 
   useEffect(() => {
     refreshStats();
@@ -106,6 +112,14 @@ export default function AdminPage() {
           <ExportsCard stats={stats} />
 
           <div className="mt-8 flex flex-wrap items-center gap-1 rounded-xl border border-zinc-200 bg-white p-1 dark:border-zinc-800 dark:bg-zinc-900">
+            <TabButton active={tab === "visitors"} onClick={() => setTab("visitors")}>
+              <MapPin size={14} />
+              Unique visitors
+            </TabButton>
+            <TabButton active={tab === "conversations"} onClick={() => setTab("conversations")}>
+              <MessagesSquare size={14} />
+              All chats
+            </TabButton>
             <TabButton active={tab === "dpo-arena"} onClick={() => setTab("dpo-arena")}>
               <Trophy size={14} />
               Arena DPO pairs
@@ -121,6 +135,8 @@ export default function AdminPage() {
           </div>
 
           <div className="mt-4">
+            {tab === "visitors" && <VisitorsTab />}
+            {tab === "conversations" && <ConversationsTab />}
             {tab === "dpo-arena" && <ArenaTab />}
             {tab === "dpo-regen" && <RegenTab />}
             {tab === "feedback" && <FeedbackTab />}
@@ -178,8 +194,14 @@ function StatsGrid({
     );
   }
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
       <StatCard icon={Users} label="Users" value={stats.users.total} sub={`${stats.users.staff} staff`} />
+      <StatCard
+        icon={MapPin}
+        label="Visitors"
+        value={stats.visitors?.total ?? 0}
+        sub={`${stats.visitors?.with_conversations ?? 0} with chats`}
+      />
       <StatCard
         icon={MessageSquareQuote}
         label="Conversations"
@@ -754,6 +776,116 @@ function SkeletonRows() {
           className="h-24 animate-pulse rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
         />
       ))}
+    </div>
+  );
+}
+
+function VisitorsTab() {
+  const { page, setPage, q, setQ, pending, data, error } = useTablePage(
+    ({ page, q }) => listAdminVisitors({ page, page_size: 25, q }),
+  );
+
+  return (
+    <div>
+      <SearchBar q={q} setQ={setQ} />
+      <div className="mt-3 space-y-3">
+        {error && <ErrorBox msg={error} />}
+        {pending && !data ? (
+          <SkeletonRows />
+        ) : data?.results.length === 0 ? (
+          <EmptyBox label="No anonymous visitors tracked yet." />
+        ) : (
+          data?.results.map((row) => <VisitorRow key={row.visitor_key} row={row} />)
+        )}
+      </div>
+      <Pagination page={page} setPage={setPage} data={data} />
+    </div>
+  );
+}
+
+function VisitorRow({ row }: { row: AdminVisitorRow }) {
+  return (
+    <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
+        <span className="font-mono">{row.visitor_key.slice(0, 8)}…</span>
+        <span>{new Date(row.last_seen).toLocaleString()}</span>
+      </div>
+      <div className="grid gap-2 text-sm sm:grid-cols-2">
+        <div>
+          <div className="font-medium text-zinc-900 dark:text-white">
+            {row.location_label || "Unknown location"}
+          </div>
+          <div className="text-xs text-zinc-500">
+            {row.last_ip || "No IP"} · {row.visit_count} visits
+          </div>
+        </div>
+        <div className="text-xs text-zinc-500">
+          <div>{row.conversation_count} conversations · {row.message_count} messages</div>
+          {row.linked_user_email && <div>Linked: {row.linked_user_email}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConversationsTab() {
+  const [owner, setOwner] = useState<"" | "guest" | "registered">("");
+  const { page, setPage, q, setQ, pending, data, error } = useTablePage(
+    ({ page, q }) =>
+      listAdminConversations({
+        page,
+        page_size: 25,
+        q,
+        owner: owner || undefined,
+      }),
+    [owner],
+  );
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-2">
+        <SearchBar q={q} setQ={setQ} />
+        <select
+          value={owner}
+          onChange={(e) => setOwner(e.target.value as "" | "guest" | "registered")}
+          className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+        >
+          <option value="">All owners</option>
+          <option value="guest">Guest only</option>
+          <option value="registered">Registered only</option>
+        </select>
+      </div>
+      <div className="mt-3 space-y-3">
+        {error && <ErrorBox msg={error} />}
+        {pending && !data ? (
+          <SkeletonRows />
+        ) : data?.results.length === 0 ? (
+          <EmptyBox label="No conversations yet." />
+        ) : (
+          data?.results.map((row) => <ConversationRow key={row.id} row={row} />)
+        )}
+      </div>
+      <Pagination page={page} setPage={setPage} data={data} />
+    </div>
+  );
+}
+
+function ConversationRow({ row }: { row: AdminConversationRow }) {
+  return (
+    <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
+        <span>
+          {row.id} · {row.owner_label} ({row.owner_type})
+          {row.location_label ? ` · ${row.location_label}` : ""}
+        </span>
+        <span>{new Date(row.updated_at).toLocaleString()}</span>
+      </div>
+      <div className="text-sm font-medium text-zinc-900 dark:text-white">
+        {row.title || "Untitled chat"}
+      </div>
+      <div className="mt-1 text-xs text-zinc-500">
+        {row.message_count} messages · {row.model_key}
+      </div>
     </div>
   );
 }

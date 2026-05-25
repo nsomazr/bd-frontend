@@ -1,4 +1,4 @@
-import { api, API_BASE_URL, tokenStorage } from "./client";
+import { api, API_BASE_URL, buildApiHeaders, tokenStorage } from "./client";
 
 export type FeedbackRating = "up" | "down";
 
@@ -42,16 +42,11 @@ export async function streamRegenerate(
   handlers: RegenHandlers,
   signal?: AbortSignal,
 ): Promise<void> {
-  const token = tokenStorage.getAccess();
   const resp = await fetch(
     `${API_BASE_URL}/api/conversations/${conversationId}/regenerate/`,
     {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "text/event-stream",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+      headers: buildApiHeaders({ Accept: "text/event-stream" }),
       body: JSON.stringify(modelKey ? { model_key: modelKey } : {}),
       signal,
     },
@@ -121,6 +116,11 @@ function parseSseBlock(block: string): { event: string; data: any } | null {
 
 export interface AdminStats {
   users: { total: number; staff: number };
+  visitors: {
+    total: number;
+    with_conversations: number;
+    countries: number;
+  };
   conversations: number;
   messages: number;
   feedback: { total: number; up: number; down: number };
@@ -220,6 +220,85 @@ export async function listAdminArena(params: {
     "/api/admin/rlhf/arena/",
     { params },
   );
+  return data;
+}
+
+export interface AdminVisitorRow {
+  visitor_key: string;
+  linked_user_email: string | null;
+  first_seen: string;
+  last_seen: string;
+  visit_count: number;
+  first_ip: string | null;
+  last_ip: string | null;
+  country: string;
+  region: string;
+  city: string;
+  location_label: string;
+  user_agent: string;
+  conversation_count: number;
+  message_count: number;
+}
+
+export interface AdminConversationRow {
+  id: string;
+  title: string;
+  model_key: string;
+  created_at: string;
+  updated_at: string;
+  owner_type: "registered" | "guest" | "unknown";
+  owner_label: string;
+  visitor_key: string | null;
+  location_label: string | null;
+  message_count: number;
+  messages?: Array<{
+    id: number;
+    role: string;
+    content: string;
+    model_key: string;
+    created_at: string;
+  }>;
+}
+
+export async function listAdminVisitors(params: {
+  page?: number;
+  page_size?: number;
+  q?: string;
+  country?: string;
+}): Promise<Paginated<AdminVisitorRow>> {
+  const { data } = await api.get<Paginated<AdminVisitorRow>>(
+    "/api/admin/rlhf/visitors/",
+    { params },
+  );
+  return data;
+}
+
+export async function getAdminVisitor(
+  visitorKey: string,
+): Promise<AdminVisitorRow & { conversations: AdminConversationRow[] }> {
+  const { data } = await api.get(`/api/admin/rlhf/visitors/${visitorKey}/`);
+  return data;
+}
+
+export async function listAdminConversations(params: {
+  page?: number;
+  page_size?: number;
+  q?: string;
+  owner?: "registered" | "guest" | "";
+  visitor_key?: string;
+  user_email?: string;
+}): Promise<Paginated<AdminConversationRow>> {
+  const { data } = await api.get<Paginated<AdminConversationRow>>(
+    "/api/admin/rlhf/conversations/",
+    { params },
+  );
+  return data;
+}
+
+export async function getAdminConversation(
+  publicId: string,
+): Promise<AdminConversationRow> {
+  const { data } = await api.get(`/api/admin/rlhf/conversations/${publicId}/`);
   return data;
 }
 

@@ -20,18 +20,6 @@ function AuthGate({ children }: { children: JSX.Element }) {
   return children;
 }
 
-function ProtectedRoute({ children }: { children: JSX.Element }) {
-  const status = useAuthStore((s) => s.status);
-  const location = useLocation();
-  if (status === "idle" || status === "loading") {
-    return <SessionLoader />;
-  }
-  if (status !== "authenticated") {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
-  }
-  return children;
-}
-
 function AdminRoute({ children }: { children: JSX.Element }) {
   const status = useAuthStore((s) => s.status);
   const isStaff = useAuthStore((s) => Boolean(s.user?.is_staff));
@@ -79,12 +67,10 @@ export default function App() {
     bootstrap();
   }, [bootstrap]);
 
-  // Whenever the user transitions to unauthenticated, wipe any cached chat data
-  // so logging in as a different account never shows stale conversations.
   useEffect(() => {
     if (
       lastStatus.current === "authenticated" &&
-      status === "unauthenticated"
+      status === "guest"
     ) {
       resetChat();
     }
@@ -113,25 +99,25 @@ export default function App() {
       <Route
         path="/chat"
         element={
-          <ProtectedRoute>
+          <AuthGate>
             <ChatPage />
-          </ProtectedRoute>
+          </AuthGate>
         }
       />
       <Route
         path="/c/:id"
         element={
-          <ProtectedRoute>
+          <AuthGate>
             <ChatPage />
-          </ProtectedRoute>
+          </AuthGate>
         }
       />
       <Route
         path="/arena"
         element={
-          <ProtectedRoute>
+          <AuthGate>
             <ArenaPage />
-          </ProtectedRoute>
+          </AuthGate>
         }
       />
       <Route
