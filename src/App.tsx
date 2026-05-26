@@ -146,9 +146,7 @@ export default function App() {
       <Route
         path="/api-docs"
         element={
-          <AuthGate>
-            <ApiDocsPage />
-          </AuthGate>
+          <ApiDocsPage />
         }
       />
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -5,12 +5,14 @@ import {
   BookOpen,
   ExternalLink,
   FileJson,
-  ShieldCheck,
 } from "lucide-react";
+import { RedocStandalone } from "redoc";
+import SwaggerUI from "swagger-ui-react";
 import { BrandMark } from "@/components/BrandMark";
 import { HeaderControls } from "@/components/HeaderControls";
 import { Markdown } from "@/components/Markdown";
 import { API_BASE_URL } from "@/api/client";
+import "swagger-ui-react/swagger-ui.css";
 
 type Tab = "guide" | "swagger" | "redoc";
 
@@ -125,9 +127,8 @@ export default function ApiDocsPage() {
             <Link to="/" aria-label="Maisha home">
               <BrandMark size="sm" />
             </Link>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-              <ShieldCheck size={12} />
-              Internal API Docs
+            <span className="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+              API Docs
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -194,19 +195,31 @@ export default function ApiDocsPage() {
           )}
 
           {tab === "swagger" && (
-            <iframe
-              title="Swagger API docs"
-              src={swaggerUrl}
-              className="h-[80vh] w-full rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800"
-            />
+            <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800">
+              <div className="max-w-full overflow-x-auto">
+                <SwaggerUI
+                  url={schemaUrl}
+                  docExpansion="list"
+                  defaultModelsExpandDepth={-1}
+                  persistAuthorization
+                />
+              </div>
+            </div>
           )}
 
           {tab === "redoc" && (
-            <iframe
-              title="ReDoc API docs"
-              src={redocUrl}
-              className="h-[80vh] w-full rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800"
-            />
+            <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800">
+              <RedocStandalone
+                specUrl={schemaUrl}
+                options={{
+                  theme: {
+                    colors: { primary: { main: "#dc2626" } },
+                    typography: { fontFamily: "Inter, system-ui, sans-serif" },
+                  },
+                  hideDownloadButton: false,
+                }}
+              />
+            </div>
           )}
         </div>
       </main>
