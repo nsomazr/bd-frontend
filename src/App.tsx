@@ -10,6 +10,7 @@ import ChatPage from "@/pages/Chat";
 import ArenaPage from "@/pages/Arena";
 import LeaderboardPage from "@/pages/Leaderboard";
 import AdminPage from "@/pages/Admin";
+import ApiDocsPage from "@/pages/ApiDocs";
 import { useLocale } from "@/hooks/useLocale";
 
 function AuthGate({ children }: { children: JSX.Element }) {
@@ -134,6 +135,20 @@ export default function App() {
           <AdminRoute>
             <AdminPage />
           </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/api-docs"
+        element={
+          <Navigate to="/api-docs" replace />
+        }
+      />
+      <Route
+        path="/api-docs"
+        element={
+          <AuthGate>
+            <ApiDocsPage />
+          </AuthGate>
         }
       />
       <Route path="*" element={<Navigate to="/" replace />} />

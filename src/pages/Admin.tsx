@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import clsx from "clsx";
 import {
   ArrowLeft,
+  BookOpen,
   Download,
   Loader2,
   MapPin,
@@ -79,6 +80,13 @@ export default function AdminPage() {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              to="/api-docs"
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-zinc-600 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              <BookOpen size={14} />
+              API Docs
+            </Link>
             <button
               type="button"
               onClick={refreshStats}
