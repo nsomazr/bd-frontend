@@ -73,6 +73,8 @@ export const translations = {
     "chat.closeSources": "Close sources panel",
     "chat.noSourceUrl": "No link available",
     "chat.untitledSource": "Untitled source",
+    "chat.responseTruncated":
+      "This reply was cut short. Try asking for a shorter answer or use Regenerate.",
     "chat.loadingModels": "Loading models...",
     "chat.disclaimer":
       "Maisha provides general information and is not a substitute for medical advice.",
@@ -273,6 +275,8 @@ export const translations = {
     "chat.closeSources": "Funga paneli ya vyanzo",
     "chat.noSourceUrl": "Hakuna kiungo",
     "chat.untitledSource": "Chanzo bila jina",
+    "chat.responseTruncated":
+      "Jibu hili limekatwa mapema. Jaribu kuomba jibu fupi au bonyeza Tengeneza tena.",
     "chat.loadingModels": "Inapakia modeli...",
     "chat.disclaimer":
       "Maisha inatoa taarifa za jumla na si badala ya ushauri wa kimatibabu.",

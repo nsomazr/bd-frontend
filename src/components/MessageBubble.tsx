@@ -16,6 +16,7 @@ import { useChatStore } from "@/store/chatStore";
 import { useUiStore } from "@/store/uiStore";
 import { useLocale } from "@/hooks/useLocale";
 import { Markdown } from "./Markdown";
+import { balanceMarkdownDelimiters } from "@/utils/markdown";
 
 interface MessageBubbleProps {
   message: Message;
@@ -40,6 +41,8 @@ export function MessageBubble({
   const { t } = useLocale();
 
   const webSources = message.web_sources?.filter((s) => s.title || s.url) ?? [];
+  const renderedContent =
+    !isUser && !streaming ? balanceMarkdownDelimiters(message.content) : message.content;
 
   async function copy() {
     try {
@@ -120,7 +123,7 @@ export function MessageBubble({
               isUser ? (
                 <div className="whitespace-pre-wrap">{message.content}</div>
               ) : (
-                <Markdown>{message.content}</Markdown>
+                <Markdown>{renderedContent}</Markdown>
               )
             ) : (
               <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
@@ -132,44 +135,50 @@ export function MessageBubble({
               <span className="ml-0.5 inline-block h-4 w-[2px] -mb-0.5 animate-blink-caret bg-brand-500 align-middle" />
             )}
 
-            {!isUser && webSources.length > 0 && !streaming && (
-              <div className="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-700">
-                <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-                  <Globe size={12} />
-                  <span>{t("chat.sources")}</span>
-                </div>
-                <ol className="space-y-1.5 text-xs">
-                  {webSources.map((source, index) => (
-                    <li key={`${source.url || source.title}-${index}`} className="flex gap-2">
-                      <span className="shrink-0 font-medium text-zinc-500">[{index + 1}]</span>
-                      {source.url ? (
-                        <a
-                          href={source.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="min-w-0 text-brand-600 hover:underline dark:text-brand-400"
-                        >
-                          <span className="line-clamp-2">{source.title || source.url}</span>
-                        </a>
-                      ) : (
-                        <span className="line-clamp-2 text-zinc-700 dark:text-zinc-300">
-                          {source.title || t("chat.untitledSource")}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-                <button
-                  type="button"
-                  onClick={() => openSourcesPanel(message.id, webSources)}
-                  className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-[11px] font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                >
-                  <PanelRightOpen size={12} />
-                  {t("chat.viewSources")}
-                </button>
-              </div>
+            {!isUser && message.truncated && !streaming && (
+              <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+                {t("chat.responseTruncated")}
+              </p>
             )}
           </div>
+
+          {!isUser && webSources.length > 0 && !streaming && (
+            <div className="mt-2 w-full rounded-xl border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/50">
+              <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                <Globe size={12} />
+                <span>{t("chat.sources")}</span>
+              </div>
+              <ol className="space-y-1.5 text-xs">
+                {webSources.map((source, index) => (
+                  <li key={`${source.url || source.title}-${index}`} className="flex gap-2">
+                    <span className="shrink-0 font-medium text-zinc-500">[{index + 1}]</span>
+                    {source.url ? (
+                      <a
+                        href={source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="min-w-0 text-brand-600 hover:underline dark:text-brand-400"
+                      >
+                        <span className="line-clamp-2">{source.title || source.url}</span>
+                      </a>
+                    ) : (
+                      <span className="line-clamp-2 text-zinc-700 dark:text-zinc-300">
+                        {source.title || t("chat.untitledSource")}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+              <button
+                type="button"
+                onClick={() => openSourcesPanel(message.id, webSources)}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-2 py-1 text-[11px] font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                <PanelRightOpen size={12} />
+                {t("chat.viewSources")}
+              </button>
+            </div>
+          )}
 
           {!isUser && message.content && !streaming && (
             <div className="mt-1.5 flex flex-wrap items-center gap-1">

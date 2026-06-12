@@ -14,6 +14,7 @@ export interface Message {
   content: string;
   model_key: string;
   web_sources?: WebSearchSource[];
+  truncated?: boolean;
   created_at: string;
   feedback_rating?: "up" | "down" | null;
 }
@@ -60,6 +61,7 @@ export interface StreamEventHandlers {
     assistant_message_id: number;
     content: string;
     web_sources?: WebSearchSource[];
+    truncated?: boolean;
   }) => void;
   onError?: (message: string) => void;
 }
