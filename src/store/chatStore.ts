@@ -242,6 +242,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
                     id: info.assistant_message_id,
                     content: info.content,
                     feedback_rating: null,
+                    web_sources: [],
+                    truncated: Boolean(info.truncated),
                   }
                 : m,
             ),

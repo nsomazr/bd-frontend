@@ -32,6 +32,8 @@ export interface RegenHandlers {
     assistant_message_id: number;
     rejected_message_id: number;
     content: string;
+    web_sources?: [];
+    truncated?: boolean;
   }) => void;
   onError?: (message: string) => void;
 }
