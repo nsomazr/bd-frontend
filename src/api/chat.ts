@@ -45,12 +45,22 @@ export async function deleteConversation(id: string): Promise<void> {
   await api.delete(`/api/conversations/${id}/`);
 }
 
+export interface WebSearchSource {
+  title: string;
+  url: string;
+}
+
 export interface StreamEventHandlers {
   onStart?: (info: { conversation_id: string; user_message_id: number; model_key: string }) => void;
+  onWebSearch?: (info: { status: "searching" | "done"; sources?: WebSearchSource[] }) => void;
   onModelReady?: (info: { model_key: string }) => void;
   onToken?: (delta: string) => void;
   onDone?: (info: { assistant_message_id: number; content: string }) => void;
   onError?: (message: string) => void;
+}
+
+export interface StreamCompletionOptions {
+  webSearch?: boolean;
 }
 
 /**
@@ -63,11 +73,16 @@ export async function streamCompletion(
   model_key: string,
   handlers: StreamEventHandlers,
   signal?: AbortSignal,
+  options?: StreamCompletionOptions,
 ): Promise<void> {
   const resp = await fetch(`${API_BASE_URL}/api/conversations/${conversationId}/complete/`, {
     method: "POST",
     headers: buildApiHeaders({ Accept: "text/event-stream" }),
-    body: JSON.stringify({ content, model_key }),
+    body: JSON.stringify({
+      content,
+      model_key,
+      web_search: Boolean(options?.webSearch),
+    }),
     signal,
   });
 
@@ -95,6 +110,9 @@ export async function streamCompletion(
       switch (evt.event) {
         case "start":
           handlers.onStart?.(evt.data);
+          break;
+        case "web_search":
+          handlers.onWebSearch?.(evt.data);
           break;
         case "model_ready":
           handlers.onModelReady?.(evt.data);

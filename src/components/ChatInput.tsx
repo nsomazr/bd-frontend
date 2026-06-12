@@ -1,18 +1,24 @@
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
-import { Loader2, Send } from "lucide-react";
+import { Globe, Loader2, Send } from "lucide-react";
 import { ModelDropdown } from "./ModelDropdown";
 import { useLocale } from "@/hooks/useLocale";
+import { useUiStore } from "@/store/uiStore";
 
 interface ChatInputProps {
   disabled?: boolean;
   streaming?: boolean;
+  webSearching?: boolean;
   onSend: (text: string) => void;
 }
 
-export function ChatInput({ disabled, streaming, onSend }: ChatInputProps) {
+export function ChatInput({ disabled, streaming, webSearching, onSend }: ChatInputProps) {
   const [value, setValue] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
   const { t } = useLocale();
+  const { webSearchEnabled, setWebSearchEnabled } = useUiStore((s) => ({
+    webSearchEnabled: s.webSearchEnabled,
+    setWebSearchEnabled: s.setWebSearchEnabled,
+  }));
 
   useEffect(() => {
     const el = ref.current;
@@ -60,8 +66,45 @@ export function ChatInput({ disabled, streaming, onSend }: ChatInputProps) {
               {streaming ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
             </button>
           </div>
-          <div className="flex items-center justify-between border-t border-zinc-200 px-2 py-1.5 dark:border-zinc-800">
-            <ModelDropdown direction="up" />
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200 px-2 py-1.5 dark:border-zinc-800">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <ModelDropdown direction="up" />
+              <div
+                className={`flex items-center gap-2 rounded-lg border px-2 py-1 text-xs transition ${
+                  webSearchEnabled
+                    ? "border-brand-300 bg-brand-50 text-brand-800 dark:border-brand-800 dark:bg-brand-950/50 dark:text-brand-200"
+                    : "border-transparent text-zinc-500 dark:text-zinc-400"
+                }`}
+                title={t("chat.webSearchHint")}
+              >
+                <Globe size={14} className="shrink-0" aria-hidden />
+                <span className="whitespace-nowrap">{t("chat.webSearch")}</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={webSearchEnabled}
+                  aria-label={t("chat.webSearch")}
+                  disabled={disabled}
+                  onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                  className={`relative h-5 w-9 shrink-0 rounded-full transition ${
+                    webSearchEnabled
+                      ? "bg-brand-600"
+                      : "bg-zinc-300 dark:bg-zinc-600"
+                  } disabled:cursor-not-allowed disabled:opacity-50`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition ${
+                      webSearchEnabled ? "translate-x-4" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+              {webSearching && (
+                <span className="text-[11px] text-brand-600 dark:text-brand-300">
+                  {t("chat.webSearching")}
+                </span>
+              )}
+            </div>
             <div className="hidden text-[11px] text-zinc-400 sm:block">
               <kbd className="rounded border border-zinc-300 bg-zinc-50 px-1.5 py-0.5 font-mono text-[10px] text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
                 Enter

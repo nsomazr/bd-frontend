@@ -64,6 +64,9 @@ export const translations = {
     "chat.regenerate": "Regenerate",
     "chat.inputPlaceholder": "Message Maisha...",
     "chat.send": "Send",
+    "chat.webSearch": "Web search",
+    "chat.webSearchHint": "Search the web for up-to-date information before answering",
+    "chat.webSearching": "Searching the web...",
     "chat.loadingModels": "Loading models...",
     "chat.disclaimer":
       "Maisha provides general information and is not a substitute for medical advice.",
@@ -255,6 +258,9 @@ export const translations = {
     "chat.regenerate": "Tengeneza tena",
     "chat.inputPlaceholder": "Andika ujumbe kwa Maisha...",
     "chat.send": "Tuma",
+    "chat.webSearch": "Tafuta mtandaoni",
+    "chat.webSearchHint": "Tafuta taarifa za kisasa mtandaoni kabla ya kujibu",
+    "chat.webSearching": "Inatafuta mtandaoni...",
     "chat.loadingModels": "Inapakia modeli...",
     "chat.disclaimer":
       "Maisha inatoa taarifa za jumla na si badala ya ushauri wa kimatibabu.",

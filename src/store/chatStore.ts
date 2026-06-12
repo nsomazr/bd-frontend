@@ -23,6 +23,7 @@ interface ChatState {
   loadingList: boolean;
   loadingMessages: boolean;
   streaming: boolean;
+  webSearching: boolean;
   streamError: string | null;
   notFound: boolean;
   loadConversations: () => Promise<void>;
@@ -30,7 +31,7 @@ interface ChatState {
   selectConversation: (id: string) => Promise<void>;
   removeConversation: (id: string) => Promise<void>;
   renameConversation: (id: string, title: string) => Promise<void>;
-  sendMessage: (content: string, modelKey: string) => Promise<void>;
+  sendMessage: (content: string, modelKey: string, options?: { webSearch?: boolean }) => Promise<void>;
   regenerateLast: (modelKey?: string) => Promise<void>;
   rateMessage: (messageId: number, rating: FeedbackRating | null, comment?: string) => Promise<void>;
   clearError: () => void;
@@ -46,6 +47,7 @@ const INITIAL_STATE = {
   loadingList: false,
   loadingMessages: false,
   streaming: false,
+  webSearching: false,
   streamError: null as string | null,
   notFound: false,
 };
@@ -118,7 +120,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }));
   },
 
-  async sendMessage(content, modelKey) {
+  async sendMessage(content, modelKey, options) {
     let activeId = get().activeId;
     if (!activeId) {
       const convo = await get().newConversation(modelKey);
@@ -144,11 +146,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((s) => ({
       messages: [...s.messages, optimisticUser, placeholder],
       streaming: true,
+      webSearching: Boolean(options?.webSearch),
       streamError: null,
     }));
 
     try {
-      await streamCompletion(activeId, content, modelKey, {
+      await streamCompletion(
+        activeId,
+        content,
+        modelKey,
+        {
+        onWebSearch: (info) => {
+          set({ webSearching: info.status === "searching" });
+        },
         onToken: (delta) => {
           set((s) => ({
             messages: s.messages.map((m) =>
@@ -168,12 +178,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
         onError: (msg) => {
           set({ streamError: msg });
         },
-      });
+      },
+        undefined,
+        { webSearch: options?.webSearch },
+      );
       get().loadConversations().catch(() => undefined);
     } catch (e: any) {
       set({ streamError: e?.message ?? "Stream failed" });
     } finally {
-      set({ streaming: false });
+      set({ streaming: false, webSearching: false });
     }
   },
 

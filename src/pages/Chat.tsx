@@ -20,6 +20,7 @@ export default function ChatPage() {
   const {
     messages,
     streaming,
+    webSearching,
     streamError,
     notFound,
     selectConversation,
@@ -29,6 +30,7 @@ export default function ChatPage() {
   } = useChatStore((s) => ({
     messages: s.messages,
     streaming: s.streaming,
+    webSearching: s.webSearching,
     streamError: s.streamError,
     notFound: s.notFound,
     selectConversation: s.selectConversation,
@@ -41,10 +43,11 @@ export default function ChatPage() {
     selectedKey: s.selectedKey,
     load: s.load,
   }));
-  const { sidebarCollapsed, toggleSidebar, openMobileNav } = useUiStore((s) => ({
+  const { sidebarCollapsed, toggleSidebar, openMobileNav, webSearchEnabled } = useUiStore((s) => ({
     sidebarCollapsed: s.sidebarCollapsed,
     toggleSidebar: s.toggleSidebar,
     openMobileNav: s.openMobileNav,
+    webSearchEnabled: s.webSearchEnabled,
   }));
 
   useEffect(() => {
@@ -91,10 +94,10 @@ export default function ChatPage() {
     if (!id) {
       const convo = await newConversation(selectedKey);
       navigate(`/c/${convo.id}`, { replace: true });
-      await sendMessage(text, selectedKey);
+      await sendMessage(text, selectedKey, { webSearch: webSearchEnabled });
       return;
     }
-    await sendMessage(text, selectedKey);
+    await sendMessage(text, selectedKey, { webSearch: webSearchEnabled });
   }
 
   return (
@@ -138,7 +141,12 @@ export default function ChatPage() {
         <main className="min-h-0 flex-1">
           <ChatWindow messages={messages} streaming={streaming} />
         </main>
-        <ChatInput onSend={handleSend} disabled={streaming || !selectedKey} streaming={streaming} />
+        <ChatInput
+          onSend={handleSend}
+          disabled={streaming || !selectedKey}
+          streaming={streaming}
+          webSearching={webSearching}
+        />
       </div>
     </div>
   );
