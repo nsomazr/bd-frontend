@@ -158,6 +158,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
         {
         onWebSearch: (info) => {
           set({ webSearching: info.status === "searching" });
+          if (info.status === "done" && info.sources?.length) {
+            set((s) => ({
+              messages: s.messages.map((m) =>
+                m.id === placeholderId ? { ...m, web_sources: info.sources } : m,
+              ),
+            }));
+          }
         },
         onToken: (delta) => {
           set((s) => ({
@@ -170,7 +177,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
           set((s) => ({
             messages: s.messages.map((m) =>
               m.id === placeholderId
-                ? { ...m, id: info.assistant_message_id, content: info.content }
+                ? {
+                    ...m,
+                    id: info.assistant_message_id,
+                    content: info.content,
+                    web_sources: info.web_sources ?? m.web_sources,
+                  }
                 : m,
             ),
           }));

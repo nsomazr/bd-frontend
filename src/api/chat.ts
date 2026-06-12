@@ -13,6 +13,7 @@ export interface Message {
   role: "user" | "assistant" | "system";
   content: string;
   model_key: string;
+  web_sources?: WebSearchSource[];
   created_at: string;
   feedback_rating?: "up" | "down" | null;
 }
@@ -55,7 +56,11 @@ export interface StreamEventHandlers {
   onWebSearch?: (info: { status: "searching" | "done"; sources?: WebSearchSource[] }) => void;
   onModelReady?: (info: { model_key: string }) => void;
   onToken?: (delta: string) => void;
-  onDone?: (info: { assistant_message_id: number; content: string }) => void;
+  onDone?: (info: {
+    assistant_message_id: number;
+    content: string;
+    web_sources?: WebSearchSource[];
+  }) => void;
   onError?: (message: string) => void;
 }
 

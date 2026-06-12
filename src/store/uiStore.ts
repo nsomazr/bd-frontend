@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { WebSearchSource } from "@/api/chat";
 
 const SIDEBAR_KEY = "maisha.sidebar_collapsed";
 const WEB_SEARCH_KEY = "maisha.web_search";
@@ -16,11 +17,16 @@ function readWebSearchEnabled(): boolean {
 interface UiState {
   sidebarCollapsed: boolean;
   webSearchEnabled: boolean;
+  sourcesPanelOpen: boolean;
+  sourcesPanelMessageId: number | null;
+  sourcesPanelSources: WebSearchSource[];
   mobileNavOpen: boolean;
   toggleSidebar: () => void;
   setSidebarCollapsed: (v: boolean) => void;
   setWebSearchEnabled: (v: boolean) => void;
   toggleWebSearch: () => void;
+  openSourcesPanel: (messageId: number, sources: WebSearchSource[]) => void;
+  closeSourcesPanel: () => void;
   openMobileNav: () => void;
   closeMobileNav: () => void;
   toggleMobileNav: () => void;
@@ -29,6 +35,9 @@ interface UiState {
 export const useUiStore = create<UiState>((set, get) => ({
   sidebarCollapsed: readSidebarCollapsed(),
   webSearchEnabled: readWebSearchEnabled(),
+  sourcesPanelOpen: false,
+  sourcesPanelMessageId: null,
+  sourcesPanelSources: [],
   mobileNavOpen: false,
 
   toggleSidebar() {
@@ -51,6 +60,22 @@ export const useUiStore = create<UiState>((set, get) => ({
     const next = !get().webSearchEnabled;
     localStorage.setItem(WEB_SEARCH_KEY, next ? "1" : "0");
     set({ webSearchEnabled: next });
+  },
+
+  openSourcesPanel(messageId, sources) {
+    set({
+      sourcesPanelOpen: true,
+      sourcesPanelMessageId: messageId,
+      sourcesPanelSources: sources,
+    });
+  },
+
+  closeSourcesPanel() {
+    set({
+      sourcesPanelOpen: false,
+      sourcesPanelMessageId: null,
+      sourcesPanelSources: [],
+    });
   },
 
   openMobileNav() {

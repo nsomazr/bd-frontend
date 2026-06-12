@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { ChatWindow } from "@/components/ChatWindow";
 import { ChatInput } from "@/components/ChatInput";
+import { SourcesPanel } from "@/components/SourcesPanel";
 import { HeaderControls } from "@/components/HeaderControls";
 import { BrandMark } from "@/components/BrandMark";
 import { useChatStore } from "@/store/chatStore";
@@ -43,11 +44,22 @@ export default function ChatPage() {
     selectedKey: s.selectedKey,
     load: s.load,
   }));
-  const { sidebarCollapsed, toggleSidebar, openMobileNav, webSearchEnabled } = useUiStore((s) => ({
+  const {
+    sidebarCollapsed,
+    toggleSidebar,
+    openMobileNav,
+    webSearchEnabled,
+    sourcesPanelOpen,
+    sourcesPanelSources,
+    closeSourcesPanel,
+  } = useUiStore((s) => ({
     sidebarCollapsed: s.sidebarCollapsed,
     toggleSidebar: s.toggleSidebar,
     openMobileNav: s.openMobileNav,
     webSearchEnabled: s.webSearchEnabled,
+    sourcesPanelOpen: s.sourcesPanelOpen,
+    sourcesPanelSources: s.sourcesPanelSources,
+    closeSourcesPanel: s.closeSourcesPanel,
   }));
 
   useEffect(() => {
@@ -57,6 +69,10 @@ export default function ChatPage() {
   useEffect(() => {
     if (id) selectConversation(id);
   }, [id, selectConversation]);
+
+  useEffect(() => {
+    closeSourcesPanel();
+  }, [id, closeSourcesPanel]);
 
   // If the requested conversation doesn't exist (404), bounce to /chat.
   useEffect(() => {
@@ -103,7 +119,8 @@ export default function ChatPage() {
   return (
     <div className="flex h-full">
       <Sidebar />
-      <div className="flex h-full min-w-0 flex-1 flex-col">
+      <div className="flex h-full min-w-0 flex-1">
+        <div className="flex h-full min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-2 border-b border-zinc-200 bg-white/70 px-3 py-2.5 backdrop-blur sm:px-4 sm:py-3 dark:border-zinc-800 dark:bg-zinc-950/70">
           <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
             <button
@@ -147,6 +164,18 @@ export default function ChatPage() {
           streaming={streaming}
           webSearching={webSearching}
         />
+        </div>
+        {sourcesPanelOpen && sourcesPanelSources.length > 0 && (
+          <>
+            <button
+              type="button"
+              className="fixed inset-0 z-30 bg-black/40 md:hidden"
+              aria-label={t("chat.closeSources")}
+              onClick={closeSourcesPanel}
+            />
+            <SourcesPanel sources={sourcesPanelSources} onClose={closeSourcesPanel} />
+          </>
+        )}
       </div>
     </div>
   );
