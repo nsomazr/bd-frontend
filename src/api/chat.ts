@@ -1,5 +1,7 @@
 import { api, API_BASE_URL, buildApiHeaders } from "./client";
 
+import type { RagSource } from "@/api/knowledge";
+
 export interface Conversation {
   id: string;
   title: string;
@@ -14,6 +16,7 @@ export interface Message {
   content: string;
   model_key: string;
   web_sources?: WebSearchSource[];
+  rag_sources?: RagSource[];
   truncated?: boolean;
   created_at: string;
   feedback_rating?: "up" | "down" | null;
@@ -21,6 +24,33 @@ export interface Message {
 
 export interface ConversationDetail extends Conversation {
   messages: Message[];
+}
+
+export interface ConversationSearchHit {
+  conversation_id: string;
+  title: string;
+  model_key: string;
+  updated_at: string;
+  message_id: number | null;
+  message_role: Message["role"] | null;
+  snippet: string;
+  match_in: "title" | "message";
+}
+
+export interface ConversationSearchResponse {
+  query: string;
+  results: ConversationSearchHit[];
+}
+
+export async function searchConversations(
+  query: string,
+  limit = 30,
+): Promise<ConversationSearchResponse> {
+  const { data } = await api.get<ConversationSearchResponse>(
+    "/api/conversations/search/",
+    { params: { q: query, limit } },
+  );
+  return data;
 }
 
 export async function listConversations(): Promise<Conversation[]> {
@@ -54,13 +84,15 @@ export interface WebSearchSource {
 
 export interface StreamEventHandlers {
   onStart?: (info: { conversation_id: string; user_message_id: number; model_key: string }) => void;
-  onWebSearch?: (info: { status: "searching" | "done"; sources?: WebSearchSource[] }) => void;
+  onWebSearch?: (info: { status: "searching" | "done" | "skipped"; sources?: WebSearchSource[] }) => void;
+  onKnowledge?: (info: { status: "searching" | "done" | "skipped"; sources?: RagSource[] }) => void;
   onModelReady?: (info: { model_key: string }) => void;
   onToken?: (delta: string) => void;
   onDone?: (info: {
     assistant_message_id: number;
     content: string;
     web_sources?: WebSearchSource[];
+    rag_sources?: RagSource[];
     truncated?: boolean;
   }) => void;
   onError?: (message: string) => void;
@@ -68,6 +100,7 @@ export interface StreamEventHandlers {
 
 export interface StreamCompletionOptions {
   webSearch?: boolean;
+  useKnowledge?: boolean;
 }
 
 /**
@@ -89,13 +122,21 @@ export async function streamCompletion(
       content,
       model_key,
       web_search: Boolean(options?.webSearch),
+      use_knowledge: Boolean(options?.useKnowledge),
     }),
     signal,
   });
 
   if (!resp.ok || !resp.body) {
     const text = await resp.text().catch(() => "");
-    handlers.onError?.(text || `HTTP ${resp.status}`);
+    let detail = text || `HTTP ${resp.status}`;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed?.detail) detail = parsed.detail;
+    } catch {
+      /* keep raw */
+    }
+    handlers.onError?.(detail);
     return;
   }
 
@@ -120,6 +161,9 @@ export async function streamCompletion(
           break;
         case "web_search":
           handlers.onWebSearch?.(evt.data);
+          break;
+        case "knowledge":
+          handlers.onKnowledge?.(evt.data);
           break;
         case "model_ready":
           handlers.onModelReady?.(evt.data);

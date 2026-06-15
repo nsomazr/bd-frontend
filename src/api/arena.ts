@@ -2,10 +2,12 @@ import { api, API_BASE_URL, buildApiHeaders } from "./client";
 
 export type ArenaSlot = "a" | "b";
 export type ArenaVote = "a" | "b" | "tie" | "both_bad";
+export type ArenaBattleMode = "random" | "instruct_vs_dpo";
 
 export interface ArenaBattleStartEvent {
   battle_id: number;
   prompt: string;
+  battle_mode?: ArenaBattleMode;
 }
 
 export interface ArenaTokenEvent {
@@ -27,6 +29,11 @@ export interface ArenaDoneEvent {
 export interface ArenaModelInfo {
   key: string;
   label: string;
+  display_label: string;
+  variant: "instruct" | "dpo";
+  variant_label: string;
+  base_key: string;
+  family: string;
 }
 
 export interface ArenaVoteResult {
@@ -53,6 +60,11 @@ export interface ArenaVoteResult {
 export interface LeaderboardRow {
   model_key: string;
   label: string;
+  display_label: string;
+  variant: "instruct" | "dpo";
+  variant_label: string;
+  base_key: string;
+  family: string;
   rating: number;
   battles: number;
   wins: number;
@@ -96,11 +108,15 @@ export async function streamArenaBattle(
   prompt: string,
   handlers: ArenaStreamHandlers,
   signal?: AbortSignal,
+  options?: { battleMode?: ArenaBattleMode },
 ): Promise<void> {
   const resp = await fetch(`${API_BASE_URL}/api/arena/battles/`, {
     method: "POST",
     headers: buildApiHeaders({ Accept: "text/event-stream" }),
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({
+      prompt,
+      battle_mode: options?.battleMode ?? "random",
+    }),
     signal,
   });
 

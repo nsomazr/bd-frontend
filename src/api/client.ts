@@ -25,11 +25,14 @@ export const visitorStorage = {
   },
 };
 
-export function buildApiHeaders(extra?: Record<string, string>): Record<string, string> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...extra,
-  };
+export function buildApiHeaders(
+  extra?: Record<string, string>,
+  opts?: { omitContentType?: boolean },
+): Record<string, string> {
+  const headers: Record<string, string> = { ...extra };
+  if (!opts?.omitContentType) {
+    headers["Content-Type"] = "application/json";
+  }
   const token = tokenStorage.getAccess();
   if (token) headers.Authorization = `Bearer ${token}`;
   headers["X-Visitor-Id"] = visitorStorage.ensure();

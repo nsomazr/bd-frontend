@@ -21,6 +21,7 @@ import {
   subscribeLeaderboard,
   type LeaderboardSnapshot,
 } from "@/api/arena";
+import { ModelVariantBadge } from "@/components/ModelVariantBadge";
 
 export default function LeaderboardPage() {
   const [snapshot, setSnapshot] = useState<LeaderboardSnapshot | null>(null);
@@ -154,7 +155,7 @@ function Header({
         </h1>
         <p className="mt-1 max-w-xl text-sm text-zinc-500 dark:text-zinc-400">
           Elo ratings updated in real time as users vote in the arena. Each model
-          starts at 1000; wins go up, losses go down, ties hover.
+          variant (instruct and DPO) is ranked separately and starts at 1000.
         </p>
       </div>
       <div className="flex flex-col items-end gap-2">
@@ -269,12 +270,16 @@ function LeaderboardTable({
                   {idx + 1}
                 </div>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white">
+                  <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white">
                     <Icon
                       size={14}
                       className={idx === 0 ? "text-amber-500" : "text-zinc-400"}
                     />
-                    <span className="truncate">{m.label}</span>
+                    <span className="truncate">{m.display_label ?? m.label}</span>
+                    <ModelVariantBadge
+                      variant={m.variant ?? "instruct"}
+                      label={m.variant_label ?? "Instruct (SFT)"}
+                    />
                   </div>
                   <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
                     <div

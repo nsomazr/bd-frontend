@@ -3,6 +3,7 @@ import {
   Check,
   Copy,
   Droplet,
+  FileText,
   Globe,
   PanelRightOpen,
   RefreshCw,
@@ -13,8 +14,10 @@ import {
 import clsx from "clsx";
 import type { Message } from "@/api/chat";
 import { useChatStore } from "@/store/chatStore";
+import { useModelStore } from "@/store/modelStore";
 import { useUiStore } from "@/store/uiStore";
 import { useLocale } from "@/hooks/useLocale";
+import { ModelVariantBadge } from "./ModelVariantBadge";
 import { Markdown } from "./Markdown";
 import { balanceMarkdownDelimiters } from "@/utils/markdown";
 
@@ -22,12 +25,14 @@ interface MessageBubbleProps {
   message: Message;
   streaming?: boolean;
   isLastAssistant?: boolean;
+  highlighted?: boolean;
 }
 
 export function MessageBubble({
   message,
   streaming,
   isLastAssistant,
+  highlighted,
 }: MessageBubbleProps) {
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
@@ -38,9 +43,13 @@ export function MessageBubble({
   const regenerateLast = useChatStore((s) => s.regenerateLast);
   const globallyStreaming = useChatStore((s) => s.streaming);
   const openSourcesPanel = useUiStore((s) => s.openSourcesPanel);
+  const modelCatalog = useModelStore((s) => s.models);
   const { t } = useLocale();
 
+  const modelMeta = modelCatalog.find((m) => m.key === message.model_key);
+
   const webSources = message.web_sources?.filter((s) => s.title || s.url) ?? [];
+  const ragSources = message.rag_sources?.filter((s) => s.title || s.snippet) ?? [];
   const renderedContent =
     !isUser && !streaming ? balanceMarkdownDelimiters(message.content) : message.content;
 
@@ -73,7 +82,12 @@ export function MessageBubble({
   }
 
   return (
-    <div className="px-2 py-2 sm:px-4 sm:py-3">
+    <div
+      className={clsx(
+        "px-2 py-2 sm:px-4 sm:py-3 transition",
+        highlighted && "rounded-xl bg-brand-50/80 ring-2 ring-brand-400/60 dark:bg-brand-950/20",
+      )}
+    >
       <div
         className={clsx(
           "mx-auto flex w-full max-w-3xl gap-2 sm:gap-3",
@@ -105,8 +119,17 @@ export function MessageBubble({
           >
             <span>{isUser ? t("chat.you") : t("chat.assistant")}</span>
             {!isUser && message.model_key && (
-              <span className="rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-                {message.model_key}
+              <span className="inline-flex flex-wrap items-center gap-1.5">
+                <span className="rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                  {modelMeta?.label ?? message.model_key}
+                </span>
+                {modelMeta && (
+                  <ModelVariantBadge
+                    variant={modelMeta.variant}
+                    label={modelMeta.variant_label}
+                    instructOnly={modelMeta.variant === "instruct" && !modelMeta.has_dpo}
+                  />
+                )}
               </span>
             )}
           </div>
@@ -141,6 +164,34 @@ export function MessageBubble({
               </p>
             )}
           </div>
+
+          {!isUser && ragSources.length > 0 && !streaming && (
+            <div className="mt-2 w-full rounded-xl border border-violet-200 bg-violet-50/80 px-3 py-2.5 dark:border-violet-900/40 dark:bg-violet-950/20">
+              <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-violet-800 dark:text-violet-200">
+                <FileText size={12} />
+                <span>{t("chat.documentSources")}</span>
+              </div>
+              <ol className="space-y-2 text-xs">
+                {ragSources.map((source, index) => (
+                  <li key={`${source.document_id}-${source.chunk_index}-${index}`}>
+                    <div className="font-medium text-violet-900 dark:text-violet-100">
+                      [{index + 1}] {source.title}
+                      {typeof source.score === "number" && (
+                        <span className="ml-1.5 font-normal text-violet-600 dark:text-violet-300">
+                          ({Math.round(source.score * 100)}%)
+                        </span>
+                      )}
+                    </div>
+                    {source.snippet && (
+                      <p className="mt-0.5 line-clamp-3 text-violet-800/90 dark:text-violet-200/90">
+                        {source.snippet}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
 
           {!isUser && webSources.length > 0 && !streaming && (
             <div className="mt-2 w-full rounded-xl border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/50">
@@ -217,6 +268,15 @@ export function MessageBubble({
                   <span>{t("chat.regenerate")}</span>
                 </ActionButton>
               )}
+            </div>
+          )}
+
+          {isUser && message.content && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+              <ActionButton onClick={copy} title={t("chat.copy")}>
+                {copied ? <Check size={12} /> : <Copy size={12} />}
+                <span>{copied ? t("chat.copied") : t("chat.copy")}</span>
+              </ActionButton>
             </div>
           )}
 

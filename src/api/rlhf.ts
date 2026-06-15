@@ -169,8 +169,18 @@ export interface AdminArenaRow {
   prompt: string;
   chosen_text: string;
   chosen_model_key: string;
+  chosen_model?: {
+    display_label: string;
+    variant: "instruct" | "dpo";
+    variant_label: string;
+  };
   rejected_text: string;
   rejected_model_key: string;
+  rejected_model?: {
+    display_label: string;
+    variant: "instruct" | "dpo";
+    variant_label: string;
+  };
   vote: string;
   created_at: string;
   voted_at: string | null;

@@ -544,12 +544,14 @@ function ArenaRow({ row }: { row: AdminArenaRow }) {
         <DpoBlock
           label="Chosen"
           model={row.chosen_model_key}
+          modelMeta={row.chosen_model}
           body={row.chosen_text}
           tone="emerald"
         />
         <DpoBlock
           label="Rejected"
           model={row.rejected_model_key}
+          modelMeta={row.rejected_model}
           body={row.rejected_text}
           tone="rose"
         />
@@ -737,11 +739,17 @@ function PromptBlock({ label, body }: { label: string; body: string }) {
 function DpoBlock({
   label,
   model,
+  modelMeta,
   body,
   tone,
 }: {
   label: string;
   model: string;
+  modelMeta?: {
+    display_label: string;
+    variant: "instruct" | "dpo";
+    variant_label: string;
+  };
   body: string;
   tone: "emerald" | "rose";
 }) {
@@ -750,9 +758,14 @@ function DpoBlock({
     : "border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-200";
   return (
     <div className={clsx("rounded-xl border p-3", c)}>
-      <div className="mb-1 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider">
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-wider">
         <span>{label}</span>
-        <code className="text-[10px] opacity-80">{model}</code>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {modelMeta && (
+            <span className="normal-case tracking-normal">{modelMeta.display_label}</span>
+          )}
+          <code className="text-[10px] opacity-80">{model}</code>
+        </div>
       </div>
       <pre className="max-h-48 overflow-auto whitespace-pre-wrap text-xs">{body}</pre>
     </div>

@@ -12,7 +12,7 @@ ChatGPT-like blood-donation assistant.
 
 - Email / password auth (JWT) with silent refresh.
 - Sidebar with conversation history, "New chat" and delete.
-- Model dropdown listing the three fine-tuned models from `/api/models/`.
+- Model dropdown with **Instruct (SFT)** vs **DPO aligned** switch, populated from `/api/models/`.
 - ChatGPT-style streaming via SSE (`fetch` + `ReadableStream`).
 - Markdown rendering with `react-markdown` + `rehype-highlight` for code blocks.
 - Light & dark themes (toggle in the profile menu).
@@ -59,10 +59,11 @@ src/
 
 ## Models in the dropdown
 
-The dropdown is populated from `GET /api/models/`, which currently returns:
+`GET /api/models/` returns instruct and DPO-aligned variants:
 
-- **Gemma 4 E4B**
-- **Qwen 3.5 4B**
-- **Llama 3.2 3B**
+- **Gemma 4 E4B** — instruct + DPO
+- **Qwen 3.5 4B** — instruct + DPO
+- **Llama 3.2 3B** — instruct + DPO
 
-Selection is persisted to `localStorage` under `maisha.selected_model`.
+The dropdown toggle switches variant family-wide (e.g. Gemma instruct ↔ Gemma DPO).
+Selection is persisted to `localStorage` (`maisha.selected_model`, `maisha.model_variant`).

@@ -12,7 +12,9 @@ import {
   Trophy,
 } from "lucide-react";
 import clsx from "clsx";
+import type { ConversationSearchHit } from "@/api/chat";
 import { BrandMark } from "./BrandMark";
+import { ChatSearchBox } from "./ChatSearchBox";
 import { useAuthStore } from "@/store/authStore";
 import { useChatStore } from "@/store/chatStore";
 import { useModelStore } from "@/store/modelStore";
@@ -83,6 +85,14 @@ export function Sidebar() {
     await removeConversation(convoId);
     if (activeIdParam === convoId) navigate("/chat");
   }
+
+  function handleSearchSelect(hit: ConversationSearchHit) {
+    closeMobileNav();
+    const suffix = hit.message_id ? `?msg=${hit.message_id}` : "";
+    navigate(`/c/${hit.conversation_id}${suffix}`);
+  }
+
+  const showRecentList = showLabels;
 
   return (
     <>
@@ -214,15 +224,24 @@ export function Sidebar() {
 
         <nav
           className={clsx(
-            "scrollbar-thin mt-3 flex-1 overflow-y-auto overflow-x-hidden pb-3",
-            !showLabels ? "px-1" : "px-2",
+            "scrollbar-thin mt-3 flex min-h-0 flex-1 flex-col overflow-hidden pb-3",
+            !showLabels ? "px-1" : "px-0",
           )}
         >
           {showLabels && (
+            <ChatSearchBox onSelectHit={handleSearchSelect} />
+          )}
+          {showRecentList && (
             <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
               {t("sidebar.recent")}
             </div>
           )}
+          <div
+            className={clsx(
+              "scrollbar-thin min-h-0 flex-1 overflow-y-auto overflow-x-hidden",
+              !showLabels ? "px-1" : "px-2",
+            )}
+          >
           {conversations.length === 0 ? (
             showLabels && (
               <div className="mx-2 mt-2 rounded-xl border border-dashed border-zinc-300 bg-white/40 p-4 text-center dark:border-zinc-700 dark:bg-zinc-900/40">
@@ -285,6 +304,7 @@ export function Sidebar() {
               })}
             </ul>
           )}
+          </div>
         </nav>
       </aside>
     </>

@@ -3,6 +3,7 @@ import type { WebSearchSource } from "@/api/chat";
 
 const SIDEBAR_KEY = "maisha.sidebar_collapsed";
 const WEB_SEARCH_KEY = "maisha.web_search";
+const KNOWLEDGE_KEY = "maisha.use_knowledge";
 
 function readSidebarCollapsed(): boolean {
   if (typeof window === "undefined") return false;
@@ -14,9 +15,16 @@ function readWebSearchEnabled(): boolean {
   return localStorage.getItem(WEB_SEARCH_KEY) === "1";
 }
 
+function readKnowledgeEnabled(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(KNOWLEDGE_KEY) === "1";
+}
+
 interface UiState {
   sidebarCollapsed: boolean;
   webSearchEnabled: boolean;
+  knowledgeEnabled: boolean;
+  knowledgePanelOpen: boolean;
   sourcesPanelOpen: boolean;
   sourcesPanelMessageId: number | null;
   sourcesPanelSources: WebSearchSource[];
@@ -25,6 +33,9 @@ interface UiState {
   setSidebarCollapsed: (v: boolean) => void;
   setWebSearchEnabled: (v: boolean) => void;
   toggleWebSearch: () => void;
+  setKnowledgeEnabled: (v: boolean) => void;
+  toggleKnowledge: () => void;
+  setKnowledgePanelOpen: (v: boolean) => void;
   openSourcesPanel: (messageId: number, sources: WebSearchSource[]) => void;
   closeSourcesPanel: () => void;
   openMobileNav: () => void;
@@ -35,6 +46,8 @@ interface UiState {
 export const useUiStore = create<UiState>((set, get) => ({
   sidebarCollapsed: readSidebarCollapsed(),
   webSearchEnabled: readWebSearchEnabled(),
+  knowledgeEnabled: readKnowledgeEnabled(),
+  knowledgePanelOpen: false,
   sourcesPanelOpen: false,
   sourcesPanelMessageId: null,
   sourcesPanelSources: [],
@@ -60,6 +73,21 @@ export const useUiStore = create<UiState>((set, get) => ({
     const next = !get().webSearchEnabled;
     localStorage.setItem(WEB_SEARCH_KEY, next ? "1" : "0");
     set({ webSearchEnabled: next });
+  },
+
+  setKnowledgeEnabled(v) {
+    localStorage.setItem(KNOWLEDGE_KEY, v ? "1" : "0");
+    set({ knowledgeEnabled: v });
+  },
+
+  toggleKnowledge() {
+    const next = !get().knowledgeEnabled;
+    localStorage.setItem(KNOWLEDGE_KEY, next ? "1" : "0");
+    set({ knowledgeEnabled: next });
+  },
+
+  setKnowledgePanelOpen(v) {
+    set({ knowledgePanelOpen: v });
   },
 
   openSourcesPanel(messageId, sources) {

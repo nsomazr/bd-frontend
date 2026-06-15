@@ -9,6 +9,9 @@ interface ChatWindowProps {
   messages: Message[];
   streaming: boolean;
   emptyHint?: React.ReactNode;
+  highlightMessageId?: number | null;
+  knowledgePanelOpen?: boolean;
+  knowledgeLayoutTick?: number;
 }
 
 const SUGGESTION_KEYS = [
@@ -18,13 +21,27 @@ const SUGGESTION_KEYS = [
   "chat.suggest4",
 ] as const satisfies readonly TranslationKey[];
 
-export function ChatWindow({ messages, streaming, emptyHint }: ChatWindowProps) {
+export function ChatWindow({
+  messages,
+  streaming,
+  emptyHint,
+  highlightMessageId,
+  knowledgePanelOpen,
+  knowledgeLayoutTick,
+}: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const highlightRef = useRef<HTMLDivElement>(null);
   const { t } = useLocale();
 
   useEffect(() => {
+    if (highlightMessageId) return;
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streaming]);
+  }, [messages, streaming, highlightMessageId, knowledgePanelOpen, knowledgeLayoutTick]);
+
+  useEffect(() => {
+    if (!highlightMessageId) return;
+    highlightRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightMessageId, messages]);
 
   if (messages.length === 0) {
     return (
@@ -67,12 +84,17 @@ export function ChatWindow({ messages, streaming, emptyHint }: ChatWindowProps) 
             !streaming &&
             !messages.slice(idx + 1).some((later) => later.role === "assistant");
           return (
-            <MessageBubble
+            <div
               key={m.id}
-              message={m}
-              streaming={streaming && isLast && m.role === "assistant"}
-              isLastAssistant={isLastAssistant}
-            />
+              ref={highlightMessageId === m.id ? highlightRef : undefined}
+            >
+              <MessageBubble
+                message={m}
+                streaming={streaming && isLast && m.role === "assistant"}
+                isLastAssistant={isLastAssistant}
+                highlighted={highlightMessageId === m.id}
+              />
+            </div>
           );
         })}
       </div>

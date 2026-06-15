@@ -24,6 +24,7 @@ interface ChatState {
   loadingMessages: boolean;
   streaming: boolean;
   webSearching: boolean;
+  knowledgeSearching: boolean;
   streamError: string | null;
   notFound: boolean;
   loadConversations: () => Promise<void>;
@@ -31,14 +32,31 @@ interface ChatState {
   selectConversation: (id: string) => Promise<void>;
   removeConversation: (id: string) => Promise<void>;
   renameConversation: (id: string, title: string) => Promise<void>;
-  sendMessage: (content: string, modelKey: string, options?: { webSearch?: boolean }) => Promise<void>;
+  sendMessage: (
+    content: string,
+    modelKey: string,
+    options?: { webSearch?: boolean; useKnowledge?: boolean },
+  ) => Promise<string | null>;
   regenerateLast: (modelKey?: string) => Promise<void>;
   rateMessage: (messageId: number, rating: FeedbackRating | null, comment?: string) => Promise<void>;
   clearError: () => void;
+  stopGeneration: () => void;
+  appendVoiceTurn: (turn: VoiceTurnPayload) => void;
   reset: () => void;
 }
 
+export interface VoiceTurnPayload {
+  sukumaTranscript: string;
+  translatedQuery: string;
+  assistantTarget: string;
+  assistantSukuma: string;
+  modelKey: string;
+  targetLanguage: "sw" | "en";
+  audioBase64?: string | null;
+}
+
 let tempAssistantId = -1;
+let activeStreamAbort: AbortController | null = null;
 
 const INITIAL_STATE = {
   conversations: [] as Conversation[],
@@ -48,6 +66,7 @@ const INITIAL_STATE = {
   loadingMessages: false,
   streaming: false,
   webSearching: false,
+  knowledgeSearching: false,
   streamError: null as string | null,
   notFound: false,
 };
@@ -59,7 +78,46 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ streamError: null });
   },
 
+  stopGeneration() {
+    activeStreamAbort?.abort();
+    activeStreamAbort = null;
+    set({ streaming: false, webSearching: false, knowledgeSearching: false });
+  },
+
+  appendVoiceTurn(turn) {
+    const now = new Date().toISOString();
+    const userContent =
+      turn.targetLanguage === "sw"
+        ? `${turn.sukumaTranscript}\n\n_(Kiswahili: ${turn.translatedQuery})_`
+        : `${turn.sukumaTranscript}\n\n_(English: ${turn.translatedQuery})_`;
+    const assistantContent =
+      `${turn.assistantSukuma}\n\n---\n\n${turn.assistantTarget}`;
+
+    set((s) => ({
+      messages: [
+        ...s.messages,
+        {
+          id: -Date.now(),
+          role: "user",
+          content: userContent,
+          model_key: turn.modelKey,
+          created_at: now,
+        },
+        {
+          id: tempAssistantId--,
+          role: "assistant",
+          content: assistantContent,
+          model_key: turn.modelKey,
+          created_at: now,
+        },
+      ],
+      streamError: null,
+    }));
+  },
+
   reset() {
+    activeStreamAbort?.abort();
+    activeStreamAbort = null;
     set({ ...INITIAL_STATE });
   },
 
@@ -88,19 +146,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   async selectConversation(id) {
-    if (get().activeId === id) return;
-    set({ activeId: id, loadingMessages: true, messages: [], notFound: false });
+    const state = get();
+    if (state.activeId === id && (state.streaming || state.messages.length > 0)) {
+      return;
+    }
+    if (state.activeId === id) {
+      set({ loadingMessages: true, notFound: false });
+    } else {
+      set({ activeId: id, loadingMessages: true, messages: [], notFound: false });
+    }
     try {
       const detail = await getConversation(id);
-      set({ messages: detail.messages, notFound: false });
+      set((s) => {
+        if (s.activeId !== id) return s;
+        if (s.streaming) {
+          return { ...s, loadingMessages: false, notFound: false };
+        }
+        return { messages: detail.messages, notFound: false, loadingMessages: false };
+      });
     } catch (e: any) {
       if (e?.response?.status === 404) {
-        set({ messages: [], notFound: true, activeId: null });
+        set({ messages: [], notFound: true, activeId: null, loadingMessages: false });
       } else {
-        set({ messages: [] });
+        set((s) => ({ ...s, loadingMessages: false }));
       }
-    } finally {
-      set({ loadingMessages: false });
     }
   },
 
@@ -128,8 +197,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     const now = new Date().toISOString();
+    const optimisticUserId = -Date.now();
     const optimisticUser: Message = {
-      id: -Date.now(),
+      id: optimisticUserId,
       role: "user",
       content,
       model_key: modelKey,
@@ -144,11 +214,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
       created_at: now,
     };
     set((s) => ({
+      activeId,
       messages: [...s.messages, optimisticUser, placeholder],
       streaming: true,
       webSearching: Boolean(options?.webSearch),
+      knowledgeSearching: Boolean(options?.useKnowledge),
       streamError: null,
     }));
+
+    activeStreamAbort?.abort();
+    activeStreamAbort = new AbortController();
+    const signal = activeStreamAbort.signal;
 
     try {
       await streamCompletion(
@@ -156,8 +232,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
         content,
         modelKey,
         {
+        onStart: (info) => {
+          set((s) => ({
+            messages: s.messages.map((m) =>
+              m.id === optimisticUserId
+                ? { ...m, id: info.user_message_id }
+                : m,
+            ),
+          }));
+        },
         onWebSearch: (info) => {
           set({ webSearching: info.status === "searching" });
+        },
+        onKnowledge: (info) => {
+          set({ knowledgeSearching: info.status === "searching" });
         },
         onToken: (delta) => {
           set((s) => ({
@@ -175,6 +263,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
                     id: info.assistant_message_id,
                     content: info.content,
                     web_sources: info.web_sources ?? m.web_sources,
+                    rag_sources: info.rag_sources ?? m.rag_sources,
                     truncated: Boolean(info.truncated),
                   }
                 : m,
@@ -185,14 +274,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
           set({ streamError: msg });
         },
       },
-        undefined,
-        { webSearch: options?.webSearch },
+        signal,
+        { webSearch: options?.webSearch, useKnowledge: options?.useKnowledge },
       );
       get().loadConversations().catch(() => undefined);
+      return activeId;
     } catch (e: any) {
+      if (e?.name === "AbortError") return activeId;
       set({ streamError: e?.message ?? "Stream failed" });
+      return activeId;
     } finally {
-      set({ streaming: false, webSearching: false });
+      activeStreamAbort = null;
+      set({ streaming: false, webSearching: false, knowledgeSearching: false });
     }
   },
 
@@ -224,6 +317,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       streamError: null,
     }));
 
+    activeStreamAbort?.abort();
+    activeStreamAbort = new AbortController();
+    const signal = activeStreamAbort.signal;
+
     try {
       await streamRegenerate(activeId, modelKey ?? null, {
         onToken: (delta) => {
@@ -252,10 +349,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
         onError: (msg) => {
           set({ streamError: msg });
         },
-      });
+      }, signal);
     } catch (e: any) {
+      if (e?.name === "AbortError") return;
       set({ streamError: e?.message ?? "Regeneration failed" });
     } finally {
+      activeStreamAbort = null;
       set({ streaming: false });
     }
   },

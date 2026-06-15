@@ -23,10 +23,13 @@ import { useModelStore } from "@/store/modelStore";
 import {
   streamArenaBattle,
   voteArenaBattle,
+  type ArenaBattleMode,
   type ArenaSlot,
   type ArenaVote,
   type ArenaVoteResult,
+  type ArenaModelInfo,
 } from "@/api/arena";
+import { ModelVariantBadge } from "@/components/ModelVariantBadge";
 
 type SlotState = {
   status: "idle" | "loading" | "ready" | "streaming" | "done" | "error";
@@ -45,6 +48,7 @@ const SAMPLE_PROMPTS = [
 
 export default function ArenaPage() {
   const [prompt, setPrompt] = useState("");
+  const [battleMode, setBattleMode] = useState<ArenaBattleMode>("random");
   const [battleId, setBattleId] = useState<number | null>(null);
   const [slotA, setSlotA] = useState<SlotState>(INITIAL_SLOT);
   const [slotB, setSlotB] = useState<SlotState>(INITIAL_SLOT);
@@ -119,6 +123,7 @@ export default function ArenaPage() {
           },
         },
         ctrl.signal,
+        { battleMode },
       );
     } finally {
       setRunning(false);
@@ -213,6 +218,22 @@ export default function ArenaPage() {
             )}
 
             <form onSubmit={onSubmit} className="mb-5">
+              <div className="mb-3 flex flex-wrap gap-2">
+                <BattleModePill
+                  active={battleMode === "random"}
+                  disabled={running}
+                  onClick={() => setBattleMode("random")}
+                  label="Random mix"
+                  hint="Any two models (instruct or DPO)"
+                />
+                <BattleModePill
+                  active={battleMode === "instruct_vs_dpo"}
+                  disabled={running}
+                  onClick={() => setBattleMode("instruct_vs_dpo")}
+                  label="Instruct vs DPO"
+                  hint="Same base model, SFT vs DPO-aligned"
+                />
+              </div>
               <div className="flex items-center gap-2 rounded-2xl border border-zinc-300 bg-white p-2 shadow-sm focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/30 dark:border-zinc-700 dark:bg-zinc-900">
                 <input
                   type="text"
@@ -262,7 +283,7 @@ export default function ArenaPage() {
                 slot="a"
                 state={slotA}
                 anonymousLabel="Model A"
-                revealedLabel={voteResult?.models.a.label}
+                revealed={voteResult?.models.a}
                 ratingDelta={voteResult?.model_a.delta}
                 winner={voteResult?.vote === "a"}
               />
@@ -270,7 +291,7 @@ export default function ArenaPage() {
                 slot="b"
                 state={slotB}
                 anonymousLabel="Model B"
-                revealedLabel={voteResult?.models.b.label}
+                revealed={voteResult?.models.b}
                 ratingDelta={voteResult?.model_b.delta}
                 winner={voteResult?.vote === "b"}
               />
@@ -311,8 +332,9 @@ function ArenaIntro() {
             Model Comparison Arena
           </h1>
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Ask a question once and two anonymous models will answer it. Vote
-            for the response you prefer. Your votes update the public{" "}
+            Ask a question once and two anonymous models will answer it — including
+            instruct (SFT) and DPO-aligned variants. Vote for the response you
+            prefer. Your votes update the public{" "}
             <Link to="/leaderboard" className="font-medium text-brand-600 hover:underline">
               live leaderboard
             </Link>{" "}
@@ -328,7 +350,7 @@ interface ResponseColumnProps {
   slot: ArenaSlot;
   state: SlotState;
   anonymousLabel: string;
-  revealedLabel?: string;
+  revealed?: ArenaModelInfo;
   ratingDelta?: number;
   winner?: boolean;
 }
@@ -336,11 +358,11 @@ interface ResponseColumnProps {
 function ResponseColumn({
   state,
   anonymousLabel,
-  revealedLabel,
+  revealed,
   ratingDelta,
   winner,
 }: ResponseColumnProps) {
-  const revealed = revealedLabel !== undefined;
+  const revealedNow = revealed !== undefined;
   return (
     <div
       className={clsx(
@@ -360,18 +382,24 @@ function ResponseColumn({
                 : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
             )}
           >
-            {revealed ? <Crown size={14} className={winner ? "" : "opacity-40"} /> : anonymousLabel.split(" ")[1]}
+            {revealedNow ? <Crown size={14} className={winner ? "" : "opacity-40"} /> : anonymousLabel.split(" ")[1]}
           </div>
           <div>
-            <div className="text-sm font-semibold text-zinc-900 dark:text-white">
-              {revealed ? revealedLabel : anonymousLabel}
+            <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white">
+              {revealedNow ? revealed.display_label : anonymousLabel}
+              {revealedNow && (
+                <ModelVariantBadge
+                  variant={revealed.variant}
+                  label={revealed.variant_label}
+                />
+              )}
             </div>
             <div className="text-[11px] uppercase tracking-wide text-zinc-400">
               <SlotStatusLabel status={state.status} />
             </div>
           </div>
         </div>
-        {revealed && ratingDelta !== undefined && (
+        {revealedNow && ratingDelta !== undefined && (
           <span
             className={clsx(
               "rounded-full px-2.5 py-1 text-xs font-semibold",
@@ -498,6 +526,37 @@ function VoteButtons({
   );
 }
 
+function BattleModePill({
+  active,
+  disabled,
+  onClick,
+  label,
+  hint,
+}: {
+  active: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  label: string;
+  hint: string;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      title={hint}
+      className={clsx(
+        "rounded-full border px-3 py-1.5 text-left text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50",
+        active
+          ? "border-brand-400 bg-brand-50 text-brand-800 dark:border-brand-700 dark:bg-brand-950/40 dark:text-brand-200"
+          : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300",
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
 function VoteRecap({
   result,
   onAnother,
@@ -507,9 +566,9 @@ function VoteRecap({
 }) {
   const winnerLabel =
     result.vote === "a"
-      ? `${result.models.a.label} wins`
+      ? `${result.models.a.display_label} wins`
       : result.vote === "b"
-        ? `${result.models.b.label} wins`
+        ? `${result.models.b.display_label} wins`
         : result.vote === "tie"
           ? "It's a tie"
           : "Both responses fell short";
@@ -523,9 +582,9 @@ function VoteRecap({
           {winnerLabel}
         </div>
         <div className="mt-1 text-sm text-zinc-500">
-          {result.models.a.label}: {result.model_a.rating_before} -&gt;{" "}
+          {result.models.a.display_label}: {result.model_a.rating_before} -&gt;{" "}
           {result.model_a.rating_after} ({result.model_a.delta >= 0 ? "+" : ""}
-          {result.model_a.delta}). {result.models.b.label}:{" "}
+          {result.model_a.delta}). {result.models.b.display_label}:{" "}
           {result.model_b.rating_before} -&gt; {result.model_b.rating_after} (
           {result.model_b.delta >= 0 ? "+" : ""}
           {result.model_b.delta}).

@@ -1,6 +1,7 @@
-import { useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { PanelLeftOpen } from "lucide-react";
+import { voiceTranscribe } from "@/api/voice";
 import { Sidebar } from "@/components/Sidebar";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { ChatWindow } from "@/components/ChatWindow";
@@ -8,36 +9,53 @@ import { ChatInput } from "@/components/ChatInput";
 import { SourcesPanel } from "@/components/SourcesPanel";
 import { HeaderControls } from "@/components/HeaderControls";
 import { BrandMark } from "@/components/BrandMark";
+import { ChatExportMenu } from "@/components/ChatExportMenu";
+import { KnowledgePanel } from "@/components/KnowledgePanel";
 import { useChatStore } from "@/store/chatStore";
 import { useModelStore } from "@/store/modelStore";
 import { useUiStore } from "@/store/uiStore";
 import { useLocale } from "@/hooks/useLocale";
+import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 
 export default function ChatPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightMessageId = Number(searchParams.get("msg")) || null;
+  const clearedHighlightRef = useRef<number | null>(null);
   const { t } = useLocale();
+  const [voiceProcessing, setVoiceProcessing] = useState(false);
+  const [voicePrefill, setVoicePrefill] = useState<string | null>(null);
+  const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
+  const [knowledgeLayoutTick, setKnowledgeLayoutTick] = useState(0);
+  const { recording, start: startRecording, stop: stopRecording } = useVoiceRecorder();
 
   const {
     messages,
     streaming,
     webSearching,
+    knowledgeSearching,
     streamError,
     notFound,
+    activeId,
+    conversations,
     selectConversation,
     sendMessage,
-    newConversation,
     clearError,
+    stopGeneration,
   } = useChatStore((s) => ({
     messages: s.messages,
     streaming: s.streaming,
     webSearching: s.webSearching,
+    knowledgeSearching: s.knowledgeSearching,
     streamError: s.streamError,
     notFound: s.notFound,
+    activeId: s.activeId,
+    conversations: s.conversations,
     selectConversation: s.selectConversation,
     sendMessage: s.sendMessage,
-    newConversation: s.newConversation,
     clearError: s.clearError,
+    stopGeneration: s.stopGeneration,
   }));
 
   const { selectedKey, load: loadModels } = useModelStore((s) => ({
@@ -49,6 +67,9 @@ export default function ChatPage() {
     toggleSidebar,
     openMobileNav,
     webSearchEnabled,
+    knowledgeEnabled,
+    knowledgePanelOpen,
+    setKnowledgePanelOpen,
     sourcesPanelOpen,
     sourcesPanelSources,
     closeSourcesPanel,
@@ -57,6 +78,9 @@ export default function ChatPage() {
     toggleSidebar: s.toggleSidebar,
     openMobileNav: s.openMobileNav,
     webSearchEnabled: s.webSearchEnabled,
+    knowledgeEnabled: s.knowledgeEnabled,
+    knowledgePanelOpen: s.knowledgePanelOpen,
+    setKnowledgePanelOpen: s.setKnowledgePanelOpen,
     sourcesPanelOpen: s.sourcesPanelOpen,
     sourcesPanelSources: s.sourcesPanelSources,
     closeSourcesPanel: s.closeSourcesPanel,
@@ -73,6 +97,17 @@ export default function ChatPage() {
   useEffect(() => {
     closeSourcesPanel();
   }, [id, closeSourcesPanel]);
+
+  useEffect(() => {
+    if (!highlightMessageId || clearedHighlightRef.current === highlightMessageId) return;
+    const timer = window.setTimeout(() => {
+      clearedHighlightRef.current = highlightMessageId;
+      const next = new URLSearchParams(searchParams);
+      next.delete("msg");
+      setSearchParams(next, { replace: true });
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, [highlightMessageId, searchParams, setSearchParams, messages.length]);
 
   // If the requested conversation doesn't exist (404), bounce to /chat.
   useEffect(() => {
@@ -107,13 +142,48 @@ export default function ChatPage() {
   async function handleSend(text: string) {
     if (!selectedKey) return;
     clearError();
-    if (!id) {
-      const convo = await newConversation(selectedKey);
-      navigate(`/c/${convo.id}`, { replace: true });
-      await sendMessage(text, selectedKey, { webSearch: webSearchEnabled });
+    setVoiceNotice(null);
+    const convoId = await sendMessage(text, selectedKey, {
+      webSearch: webSearchEnabled,
+      useKnowledge: knowledgeEnabled,
+    });
+    if (!id && convoId) {
+      navigate(`/c/${convoId}`, { replace: true });
+    }
+  }
+
+  async function handleVoiceToggle() {
+    if (!selectedKey || streaming || voiceProcessing) return;
+    clearError();
+    setVoiceNotice(null);
+
+    if (!recording) {
+      try {
+        await startRecording();
+      } catch {
+        useChatStore.setState({ streamError: t("chat.voiceMicDenied") });
+      }
       return;
     }
-    await sendMessage(text, selectedKey, { webSearch: webSearchEnabled });
+
+    setVoiceProcessing(true);
+    try {
+      const blob = await stopRecording();
+      const result = await voiceTranscribe(blob);
+      const transcript = result.text_sukuma.trim();
+      if (!transcript) {
+        useChatStore.setState({ streamError: t("chat.voiceEmpty") });
+        return;
+      }
+      setVoicePrefill(transcript);
+      setVoiceNotice(t("chat.voiceComingSoon"));
+    } catch (e: any) {
+      useChatStore.setState({
+        streamError: e?.message ?? t("chat.voiceFailed"),
+      });
+    } finally {
+      setVoiceProcessing(false);
+    }
   }
 
   return (
@@ -146,6 +216,13 @@ export default function ChatPage() {
             <BrandMark size="sm" />
           </div>
           <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+            <ChatExportMenu
+              messages={messages}
+              activeId={activeId ?? id ?? null}
+              conversations={conversations}
+              modelKey={selectedKey}
+              disabled={streaming}
+            />
             <HeaderControls />
             <ProfileMenu />
           </div>
@@ -155,15 +232,43 @@ export default function ChatPage() {
             {streamError}
           </div>
         )}
+        {voiceNotice && (
+          <div className="border-b border-violet-200 bg-violet-50 px-4 py-2.5 text-center text-xs text-violet-800 dark:border-violet-900/40 dark:bg-violet-950/30 dark:text-violet-200">
+            {voiceNotice}
+          </div>
+        )}
         <main className="min-h-0 flex-1">
-          <ChatWindow messages={messages} streaming={streaming} />
+          <ChatWindow
+            messages={messages}
+            streaming={streaming}
+            highlightMessageId={highlightMessageId}
+            knowledgePanelOpen={knowledgePanelOpen}
+            knowledgeLayoutTick={knowledgeLayoutTick}
+          />
         </main>
-        <ChatInput
-          onSend={handleSend}
-          disabled={streaming || !selectedKey}
-          streaming={streaming}
-          webSearching={webSearching}
-        />
+        <footer className="shrink-0">
+          <KnowledgePanel
+            open={knowledgePanelOpen}
+            onClose={() => setKnowledgePanelOpen(false)}
+            conversationId={activeId ?? id ?? null}
+            onLayoutChange={() => setKnowledgeLayoutTick((n) => n + 1)}
+          />
+          <ChatInput
+            onSend={handleSend}
+            onStop={stopGeneration}
+            onVoiceToggle={handleVoiceToggle}
+            onOpenKnowledge={() => setKnowledgePanelOpen(!knowledgePanelOpen)}
+            knowledgePanelOpen={knowledgePanelOpen}
+            voiceRecording={recording}
+            voiceProcessing={voiceProcessing}
+            knowledgeSearching={knowledgeSearching}
+            prefillText={voicePrefill}
+            onPrefillApplied={() => setVoicePrefill(null)}
+            disabled={voiceProcessing || !selectedKey}
+            streaming={streaming}
+            webSearching={webSearching}
+          />
+        </footer>
         </div>
         {sourcesPanelOpen && sourcesPanelSources.length > 0 && (
           <>
