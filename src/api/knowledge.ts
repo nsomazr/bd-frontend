@@ -1,4 +1,5 @@
 import { api, API_BASE_URL, buildApiHeaders } from "./client";
+import { asArray } from "@/utils/array";
 
 export interface KnowledgeDocument {
   id: number;
@@ -39,10 +40,14 @@ export async function fetchKnowledgeMeta(): Promise<KnowledgeMeta> {
 export async function listKnowledgeDocuments(
   conversationId?: string | null,
 ): Promise<KnowledgeDocument[]> {
-  const { data } = await api.get<KnowledgeDocument[]>("/api/knowledge/documents/", {
-    params: conversationId ? { conversation_id: conversationId } : undefined,
-  });
-  return data;
+  const { data } = await api.get<KnowledgeDocument[] | { results?: KnowledgeDocument[] }>(
+    "/api/knowledge/documents/",
+    {
+      params: conversationId ? { conversation_id: conversationId } : undefined,
+    },
+  );
+  if (Array.isArray(data)) return data;
+  return asArray((data as { results?: KnowledgeDocument[] })?.results);
 }
 
 export async function uploadKnowledgeDocument(

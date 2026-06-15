@@ -15,6 +15,7 @@ import {
   submitFeedback,
   type FeedbackRating,
 } from "@/api/rlhf";
+import { asArray } from "@/utils/array";
 
 interface ChatState {
   conversations: Conversation[];
@@ -125,7 +126,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ loadingList: true });
     try {
       const conversations = await listConversations();
-      set({ conversations });
+      set({ conversations: asArray(conversations) });
     } catch {
       // Either 401 (handled by interceptor) or a transient network error.
       // Treat as "no conversations" rather than crashing the UI.
@@ -162,7 +163,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (s.streaming) {
           return { ...s, loadingMessages: false, notFound: false };
         }
-        return { messages: detail.messages, notFound: false, loadingMessages: false };
+        return {
+          messages: asArray(detail.messages),
+          notFound: false,
+          loadingMessages: false,
+        };
       });
     } catch (e: any) {
       if (e?.response?.status === 404) {

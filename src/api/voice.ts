@@ -42,6 +42,7 @@ export interface VoiceTranscribeResult {
 export async function voiceTranscribe(
   audio: Blob,
   filename = "recording.webm",
+  signal?: AbortSignal,
 ): Promise<VoiceTranscribeResult> {
   const form = new FormData();
   form.append("audio", audio, filename);
@@ -50,6 +51,7 @@ export async function voiceTranscribe(
     method: "POST",
     headers: buildApiHeaders(undefined, { omitContentType: true }),
     body: form,
+    signal,
   });
 
   if (!resp.ok) {

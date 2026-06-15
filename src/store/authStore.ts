@@ -18,7 +18,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   error: null,
 
   async bootstrap() {
-    visitorStorage.ensure();
+    try {
+      visitorStorage.ensure();
+    } catch {
+      set({ user: null, status: "guest", error: null });
+      return;
+    }
     if (!tokenStorage.getAccess()) {
       set({ user: null, status: "guest", error: null });
       return;

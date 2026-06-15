@@ -14,9 +14,12 @@ interface ChatInputProps {
   onSend: (text: string) => void;
   onStop?: () => void;
   onVoiceToggle?: () => void;
+  onVoiceCancel?: () => void;
+  onClearVoiceNotice?: () => void;
   onOpenKnowledge?: () => void;
   knowledgePanelOpen?: boolean;
   voiceRecording?: boolean;
+  voiceDurationSec?: number;
   prefillText?: string | null;
   onPrefillApplied?: () => void;
 }
@@ -30,9 +33,12 @@ export function ChatInput({
   onSend,
   onStop,
   onVoiceToggle,
+  onVoiceCancel,
+  onClearVoiceNotice,
   onOpenKnowledge,
   knowledgePanelOpen,
   voiceRecording,
+  voiceDurationSec,
   prefillText,
   onPrefillApplied,
 }: ChatInputProps) {
@@ -47,8 +53,14 @@ export function ChatInput({
       setKnowledgeEnabled: s.setKnowledgeEnabled,
     }));
 
-  const busy = Boolean(streaming || voiceProcessing);
-  const inputDisabled = busy || !onSend;
+  const chatBusy = Boolean(streaming);
+  const inputDisabled = chatBusy || !onSend;
+
+  function formatDuration(sec: number) {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  }
 
   useEffect(() => {
     const el = ref.current;
@@ -63,6 +75,15 @@ export function ChatInput({
     onPrefillApplied?.();
     ref.current?.focus();
   }, [prefillText, onPrefillApplied]);
+
+  useEffect(() => {
+    if (!voiceRecording) return;
+    function onKey(e: globalThis.KeyboardEvent) {
+      if (e.key === "Escape") onVoiceCancel?.();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [voiceRecording, onVoiceCancel]);
 
   function submit() {
     const trimmed = value.trim();
@@ -82,12 +103,38 @@ export function ChatInput({
     <div className="border-t border-zinc-200 bg-white px-3 py-3 sm:px-4 sm:py-4 dark:border-zinc-800 dark:bg-zinc-950">
       <div className="mx-auto max-w-3xl">
         <div className="rounded-2xl border border-zinc-300 bg-white shadow-sm transition focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/30 dark:border-zinc-700 dark:bg-zinc-900">
+          {voiceRecording && (
+            <div className="flex items-center justify-between gap-2 border-b border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-200">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500 opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-600" />
+                </span>
+                <span className="font-semibold">{t("chat.voiceRecording")}</span>
+                <span className="font-mono tabular-nums">
+                  {formatDuration(voiceDurationSec ?? 0)}
+                </span>
+                <span className="hidden truncate text-rose-700/80 sm:inline dark:text-rose-200/80">
+                  {t("chat.voiceRecordingHint")}
+                </span>
+              </div>
+              {onVoiceCancel && (
+                <button
+                  type="button"
+                  onClick={onVoiceCancel}
+                  className="shrink-0 rounded-md px-2 py-1 font-medium text-rose-700 hover:bg-rose-100 dark:text-rose-200 dark:hover:bg-rose-900/40"
+                >
+                  {t("chat.voiceCancel")}
+                </button>
+              )}
+            </div>
+          )}
           <div className="flex items-end gap-2 px-2 pt-2">
             {onOpenKnowledge && (
               <button
                 type="button"
                 onClick={onOpenKnowledge}
-                disabled={busy}
+                disabled={chatBusy}
                 className={clsx(
                   "mb-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition disabled:cursor-not-allowed disabled:opacity-50",
                   knowledgePanelOpen
@@ -104,24 +151,46 @@ export function ChatInput({
               <button
                 type="button"
                 onClick={onVoiceToggle}
-                disabled={busy && !voiceRecording}
-                className={`mb-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition ${
+                disabled={chatBusy && !voiceRecording}
+                className={clsx(
+                  "mb-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition disabled:cursor-not-allowed disabled:opacity-50",
                   voiceRecording
-                    ? "bg-rose-600 text-white animate-pulse"
-                    : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                } disabled:cursor-not-allowed disabled:opacity-50`}
-                aria-label={t("chat.voiceInput")}
-                title={t("chat.voiceHint")}
+                    ? "bg-rose-600 text-white ring-2 ring-rose-300 ring-offset-1 dark:ring-rose-800"
+                    : voiceProcessing
+                      ? "bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-200"
+                      : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700",
+                )}
+                aria-label={
+                  voiceRecording ? t("chat.voiceStop") : t("chat.voiceInput")
+                }
+                title={
+                  voiceRecording ? t("chat.voiceStopHint") : t("chat.voiceHint")
+                }
               >
-                <Mic size={16} />
+                {voiceProcessing ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : voiceRecording ? (
+                  <Square size={14} fill="currentColor" />
+                ) : (
+                  <Mic size={16} />
+                )}
               </button>
             )}
             <textarea
               ref={ref}
               value={value}
-              onChange={(e) => setValue(e.target.value)}
+              onChange={(e) => {
+                setValue(e.target.value);
+                onClearVoiceNotice?.();
+              }}
               onKeyDown={onKey}
-              placeholder={t("chat.inputPlaceholder")}
+              placeholder={
+                voiceRecording
+                  ? t("chat.voiceRecordingPlaceholder")
+                  : voiceProcessing
+                    ? t("chat.voiceProcessingPlaceholder")
+                    : t("chat.inputPlaceholder")
+              }
               rows={1}
               disabled={inputDisabled}
               className="max-h-60 min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-100"
@@ -140,7 +209,7 @@ export function ChatInput({
               <button
                 type="button"
                 onClick={submit}
-                disabled={inputDisabled || !value.trim()}
+                disabled={inputDisabled || !value.trim() || voiceRecording || voiceProcessing}
                 className="mb-1 flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label={t("chat.send")}
               >
@@ -170,7 +239,7 @@ export function ChatInput({
                   role="switch"
                   aria-checked={webSearchEnabled}
                   aria-label={t("chat.webSearch")}
-                  disabled={busy}
+                  disabled={chatBusy}
                   onClick={() => setWebSearchEnabled(!webSearchEnabled)}
                   className={`relative h-5 w-9 shrink-0 rounded-full transition ${
                     webSearchEnabled
@@ -200,7 +269,7 @@ export function ChatInput({
                   role="switch"
                   aria-checked={knowledgeEnabled}
                   aria-label={t("chat.useKnowledge")}
-                  disabled={busy}
+                  disabled={chatBusy}
                   onClick={() => setKnowledgeEnabled(!knowledgeEnabled)}
                   className={`relative h-5 w-9 shrink-0 rounded-full transition ${
                     knowledgeEnabled
@@ -223,6 +292,11 @@ export function ChatInput({
               {knowledgeSearching && (
                 <span className="text-[11px] text-violet-600 dark:text-violet-300">
                   {t("chat.knowledgeSearching")}
+                </span>
+              )}
+              {voiceRecording && (
+                <span className="text-[11px] font-medium text-rose-600 dark:text-rose-300">
+                  {t("chat.voiceRecordingShort")}
                 </span>
               )}
               {voiceProcessing && (

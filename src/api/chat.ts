@@ -1,4 +1,5 @@
 import { api, API_BASE_URL, buildApiHeaders } from "./client";
+import { asArray } from "@/utils/array";
 
 import type { RagSource } from "@/api/knowledge";
 
@@ -54,8 +55,11 @@ export async function searchConversations(
 }
 
 export async function listConversations(): Promise<Conversation[]> {
-  const { data } = await api.get<Conversation[]>("/api/conversations/");
-  return data;
+  const { data } = await api.get<Conversation[] | { results?: Conversation[] }>(
+    "/api/conversations/",
+  );
+  if (Array.isArray(data)) return data;
+  return asArray<Conversation>((data as { results?: Conversation[] })?.results);
 }
 
 export async function createConversation(model_key: string, title?: string): Promise<Conversation> {
@@ -65,7 +69,18 @@ export async function createConversation(model_key: string, title?: string): Pro
 
 export async function getConversation(id: string): Promise<ConversationDetail> {
   const { data } = await api.get<ConversationDetail>(`/api/conversations/${id}/`);
-  return data;
+  return {
+    ...data,
+    messages: asArray<Message>(data.messages).map(normalizeMessage),
+  };
+}
+
+function normalizeMessage(message: Message): Message {
+  return {
+    ...message,
+    web_sources: asArray(message.web_sources),
+    rag_sources: asArray(message.rag_sources),
+  };
 }
 
 export async function renameConversation(id: string, title: string): Promise<Conversation> {

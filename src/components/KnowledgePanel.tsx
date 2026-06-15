@@ -19,6 +19,7 @@ import {
   type KnowledgeMeta,
 } from "@/api/knowledge";
 import { useLocale } from "@/hooks/useLocale";
+import { asArray } from "@/utils/array";
 
 const EXPANDED_KEY = "maisha.knowledge_panel_expanded";
 
@@ -56,7 +57,7 @@ export function KnowledgePanel({ open, onClose, conversationId, onLayoutChange }
     setError(null);
     Promise.all([listKnowledgeDocuments(conversationId), fetchKnowledgeMeta()])
       .then(([docs, limits]) => {
-        setDocuments(docs);
+        setDocuments(asArray(docs));
         setMeta(limits);
       })
       .catch((e: any) =>

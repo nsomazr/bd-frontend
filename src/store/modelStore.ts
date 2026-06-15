@@ -7,6 +7,7 @@ import {
   type ModelVariant,
   type ModelVariantsInfo,
 } from "@/api/models";
+import { asArray } from "@/utils/array";
 
 interface ModelState {
   models: ModelInfo[];
@@ -36,10 +37,11 @@ function resolveKeyForVariant(
   variant: ModelVariant,
   fallback: string | null,
 ): string | null {
-  if (!models.length) return fallback;
-  const base = key && models.some((m) => m.key === key) ? key : fallback;
-  if (!base) return modelsForVariant(models, variant)[0]?.key ?? null;
-  return counterpartKey(models, base, variant) ?? base;
+  const list = asArray<ModelInfo>(models);
+  if (!list.length) return fallback;
+  const base = key && list.some((m) => m.key === key) ? key : fallback;
+  if (!base) return modelsForVariant(list, variant)[0]?.key ?? null;
+  return counterpartKey(list, base, variant) ?? base;
 }
 
 export const useModelStore = create<ModelState>((set, get) => ({
@@ -54,19 +56,20 @@ export const useModelStore = create<ModelState>((set, get) => ({
     set({ loadingList: true });
     try {
       const resp = await listModels();
+      const models = asArray<ModelInfo>(resp.models);
       const stored = readStoredVariant();
       const variant =
         stored === "instruct" || stored === "dpo" ? stored : resp.variants.default;
 
       const resolved = resolveKeyForVariant(
-        resp.models,
+        models,
         get().selectedKey,
         variant,
         resp.default ?? DEFAULT_MODEL_KEY,
       );
 
       set({
-        models: resp.models,
+        models,
         variants: resp.variants,
         selectedVariant: variant,
         selectedKey: resolved,
@@ -81,7 +84,7 @@ export const useModelStore = create<ModelState>((set, get) => ({
   },
 
   select(key) {
-    const model = get().models.find((m) => m.key === key);
+    const model = asArray<ModelInfo>(get().models).find((m) => m.key === key);
     localStorage.setItem(STORAGE_KEY, key);
     set({
       selectedKey: key,
@@ -93,7 +96,8 @@ export const useModelStore = create<ModelState>((set, get) => ({
   },
 
   setVariant(variant) {
-    const { models, selectedKey } = get();
+    const models = asArray<ModelInfo>(get().models);
+    const { selectedKey } = get();
     localStorage.setItem(VARIANT_KEY, variant);
     const nextKey = resolveKeyForVariant(
       models,
@@ -113,6 +117,6 @@ export const useModelStore = create<ModelState>((set, get) => ({
 
   currentModel() {
     const { models, selectedKey } = get();
-    return models.find((m) => m.key === selectedKey);
+    return asArray<ModelInfo>(models).find((m) => m.key === selectedKey);
   },
 }));

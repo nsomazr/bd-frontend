@@ -3,6 +3,7 @@ import { Download, FileJson, FileText } from "lucide-react";
 import clsx from "clsx";
 import type { Conversation, Message } from "@/api/chat";
 import { exportChat } from "@/utils/exportChat";
+import { asArray } from "@/utils/array";
 import { useLocale } from "@/hooks/useLocale";
 
 interface ChatExportMenuProps {
@@ -24,7 +25,8 @@ export function ChatExportMenu({
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  const conversation = conversations.find((c) => c.id === activeId) ?? null;
+  const conversation =
+    asArray<Conversation>(conversations).find((c) => c.id === activeId) ?? null;
   const canExport = messages.length > 0 && !disabled;
 
   useEffect(() => {

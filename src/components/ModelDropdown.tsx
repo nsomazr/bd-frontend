@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Cpu } from "lucide-react";
 import clsx from "clsx";
-import type { ModelVariant } from "@/api/models";
+import type { ModelInfo, ModelVariant } from "@/api/models";
 import { useModelStore } from "@/store/modelStore";
 import { useLocale } from "@/hooks/useLocale";
+import { asArray } from "@/utils/array";
 import { ModelVariantBadge } from "./ModelVariantBadge";
 
 interface ModelDropdownProps {
@@ -65,10 +66,14 @@ export function ModelDropdown({ direction = "down" }: ModelDropdownProps) {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  const current = currentModel() ?? models.find((m) => m.key === selectedKey) ?? models[0];
+  const modelList = asArray<ModelInfo>(models);
+  const current =
+    (typeof currentModel === "function" ? currentModel() : undefined) ??
+    modelList.find((m) => m.key === selectedKey) ??
+    modelList[0];
   const shown = visibleModels();
 
-  if (models.length === 0) {
+  if (modelList.length === 0) {
     return (
       <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs text-zinc-400">
         <Cpu size={12} />

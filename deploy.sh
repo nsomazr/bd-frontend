@@ -24,6 +24,17 @@ fi
 echo "[deploy.sh] Building static bundle with VITE_API_BASE_URL=$VITE_API_BASE_URL"
 npm run build
 
+if [[ ! -f dist/index.html ]]; then
+  echo "[deploy.sh] Build failed: dist/index.html missing" >&2
+  exit 1
+fi
+
+JS_BUNDLE="$(grep -oE '/assets/index-[^"]+\.js' dist/index.html | head -1 || true)"
+if [[ -n "$JS_BUNDLE" && ! -f "dist${JS_BUNDLE}" ]]; then
+  echo "[deploy.sh] Build failed: missing bundle dist${JS_BUNDLE}" >&2
+  exit 1
+fi
+
 echo "[deploy.sh] (Re)starting PM2 process..."
 pm2 startOrReload ecosystem.config.cjs --update-env
 pm2 save

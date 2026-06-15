@@ -18,7 +18,10 @@ export const visitorStorage = {
   ensure(): string {
     let id = localStorage.getItem(VISITOR_KEY);
     if (!id) {
-      id = crypto.randomUUID();
+      id =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `v-${Date.now()}-${Math.random().toString(16).slice(2)}`;
       localStorage.setItem(VISITOR_KEY, id);
     }
     return id;
@@ -55,6 +58,7 @@ export const tokenStorage = {
 export const api = axios.create({
   baseURL: API_BASE_URL,
   headers: { "Content-Type": "application/json" },
+  timeout: 30_000,
 });
 
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {

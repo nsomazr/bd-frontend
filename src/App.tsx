@@ -47,7 +47,7 @@ function PublicOnlyRoute({ children }: { children: JSX.Element }) {
 function SessionLoader() {
   const { t } = useLocale();
   return (
-    <div className="flex h-full items-center justify-center bg-gradient-to-br from-zinc-50 to-brand-50 dark:from-zinc-950 dark:to-zinc-900">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-zinc-50 to-brand-50 dark:from-zinc-950 dark:to-zinc-900">
       <div className="flex flex-col items-center gap-3 text-zinc-600 dark:text-zinc-300">
         <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-lg shadow-brand-900/20">
           <Droplet size={22} fill="currentColor" className="animate-pulse" />
@@ -79,7 +79,8 @@ export default function App() {
   }, [status, resetChat]);
 
   return (
-    <Routes>
+    <div className="min-h-full h-full">
+      <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route
         path="/login"
@@ -150,6 +151,7 @@ export default function App() {
         }
       />
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      </Routes>
+    </div>
   );
 }

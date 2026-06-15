@@ -28,7 +28,9 @@ export default function ChatPage() {
   const [voicePrefill, setVoicePrefill] = useState<string | null>(null);
   const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
   const [knowledgeLayoutTick, setKnowledgeLayoutTick] = useState(0);
-  const { recording, start: startRecording, stop: stopRecording } = useVoiceRecorder();
+  const voiceAbortRef = useRef<AbortController | null>(null);
+  const { recording, durationSec, start: startRecording, stop: stopRecording, cancel: cancelRecording } =
+    useVoiceRecorder();
 
   const {
     messages,
@@ -143,6 +145,9 @@ export default function ChatPage() {
     if (!selectedKey) return;
     clearError();
     setVoiceNotice(null);
+    voiceAbortRef.current?.abort();
+    voiceAbortRef.current = null;
+    setVoiceProcessing(false);
     const convoId = await sendMessage(text, selectedKey, {
       webSearch: webSearchEnabled,
       useKnowledge: knowledgeEnabled,
@@ -153,37 +158,55 @@ export default function ChatPage() {
   }
 
   async function handleVoiceToggle() {
-    if (!selectedKey || streaming || voiceProcessing) return;
-    clearError();
-    setVoiceNotice(null);
+    if (!selectedKey || streaming) return;
 
-    if (!recording) {
+    if (recording) {
+      setVoiceProcessing(true);
+      clearError();
+      setVoiceNotice(null);
+      voiceAbortRef.current?.abort();
+      voiceAbortRef.current = new AbortController();
+      const signal = voiceAbortRef.current.signal;
       try {
-        await startRecording();
-      } catch {
-        useChatStore.setState({ streamError: t("chat.voiceMicDenied") });
+        const blob = await stopRecording();
+        const result = await voiceTranscribe(blob.blob, blob.filename, signal);
+        const transcript = result.text_sukuma.trim();
+        if (!transcript) {
+          useChatStore.setState({ streamError: t("chat.voiceEmpty") });
+          return;
+        }
+        setVoicePrefill(transcript);
+        setVoiceNotice(t("chat.voiceTranscriptReady"));
+      } catch (e: any) {
+        if (e?.name === "AbortError") return;
+        useChatStore.setState({
+          streamError: e?.message ?? t("chat.voiceFailed"),
+        });
+      } finally {
+        voiceAbortRef.current = null;
+        setVoiceProcessing(false);
       }
       return;
     }
 
-    setVoiceProcessing(true);
+    if (voiceProcessing) return;
+    clearError();
+    setVoiceNotice(null);
+
     try {
-      const blob = await stopRecording();
-      const result = await voiceTranscribe(blob);
-      const transcript = result.text_sukuma.trim();
-      if (!transcript) {
-        useChatStore.setState({ streamError: t("chat.voiceEmpty") });
-        return;
-      }
-      setVoicePrefill(transcript);
-      setVoiceNotice(t("chat.voiceComingSoon"));
-    } catch (e: any) {
-      useChatStore.setState({
-        streamError: e?.message ?? t("chat.voiceFailed"),
-      });
-    } finally {
-      setVoiceProcessing(false);
+      await startRecording();
+    } catch {
+      useChatStore.setState({ streamError: t("chat.voiceMicDenied") });
     }
+  }
+
+  function handleVoiceCancel() {
+    if (!recording) return;
+    voiceAbortRef.current?.abort();
+    voiceAbortRef.current = null;
+    cancelRecording();
+    setVoiceProcessing(false);
+    setVoiceNotice(null);
   }
 
   return (
@@ -257,9 +280,12 @@ export default function ChatPage() {
             onSend={handleSend}
             onStop={stopGeneration}
             onVoiceToggle={handleVoiceToggle}
+            onVoiceCancel={handleVoiceCancel}
+            onClearVoiceNotice={() => setVoiceNotice(null)}
             onOpenKnowledge={() => setKnowledgePanelOpen(!knowledgePanelOpen)}
             knowledgePanelOpen={knowledgePanelOpen}
             voiceRecording={recording}
+            voiceDurationSec={durationSec}
             voiceProcessing={voiceProcessing}
             knowledgeSearching={knowledgeSearching}
             prefillText={voicePrefill}

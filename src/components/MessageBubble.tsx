@@ -12,7 +12,9 @@ import {
   UserRound,
 } from "lucide-react";
 import clsx from "clsx";
-import type { Message } from "@/api/chat";
+import type { Message, WebSearchSource } from "@/api/chat";
+import type { RagSource } from "@/api/knowledge";
+import type { ModelInfo } from "@/api/models";
 import { useChatStore } from "@/store/chatStore";
 import { useModelStore } from "@/store/modelStore";
 import { useUiStore } from "@/store/uiStore";
@@ -20,6 +22,7 @@ import { useLocale } from "@/hooks/useLocale";
 import { ModelVariantBadge } from "./ModelVariantBadge";
 import { Markdown } from "./Markdown";
 import { balanceMarkdownDelimiters } from "@/utils/markdown";
+import { asArray } from "@/utils/array";
 
 interface MessageBubbleProps {
   message: Message;
@@ -46,10 +49,14 @@ export function MessageBubble({
   const modelCatalog = useModelStore((s) => s.models);
   const { t } = useLocale();
 
-  const modelMeta = modelCatalog.find((m) => m.key === message.model_key);
+  const modelMeta = asArray<ModelInfo>(modelCatalog).find((m) => m.key === message.model_key);
 
-  const webSources = message.web_sources?.filter((s) => s.title || s.url) ?? [];
-  const ragSources = message.rag_sources?.filter((s) => s.title || s.snippet) ?? [];
+  const webSources = asArray<WebSearchSource>(message.web_sources).filter(
+    (s) => s.title || s.url,
+  );
+  const ragSources = asArray<RagSource>(message.rag_sources).filter(
+    (s) => s.title || s.snippet,
+  );
   const renderedContent =
     !isUser && !streaming ? balanceMarkdownDelimiters(message.content) : message.content;
 
